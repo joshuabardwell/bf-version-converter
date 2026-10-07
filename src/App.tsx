@@ -100,8 +100,9 @@ export default function App() {
         </select>
         <span aria-hidden>→</span>
         <label htmlFor="to">To</label>
-        <select id="to" value={target} onChange={(e) => setDst(e.target.value)}>
-          {series.map((s) => <option key={s.series} value={s.series}>{s.series}</option>)}
+        <select id="to" value={target} onChange={(e) => setDst(e.target.value)} disabled={!series.length}>
+          {series.length ? series.map((s) => <option key={s.series} value={s.series}>{s.series}</option>)
+            : <option value="">loading…</option>}
         </select>
         {downgrade && res?.status === "converted" && <span className="tag">downgrade</span>}
         {mismatch && <><span className="amber">Header says {det!.version}.</span>

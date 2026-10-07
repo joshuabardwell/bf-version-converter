@@ -11,7 +11,11 @@ export function Helper() {
         <li><span className="num">2</span><span>Type <code className="accent">diff all</code> and press Enter.</span></li>
         <li><span className="num">3</span><span>Copy everything it prints and paste it on the left.</span></li>
       </ol>
-      <div className="shot">screenshot: CLI tab after diff all</div>
+      <figure className="shot">
+        <img src={`${import.meta.env.BASE_URL}cli-dump-all.webp`} width={1200} height={700} loading="lazy"
+             alt="The CLI tab of the Betaflight Configurator App after dump all: the output ends with save" />
+        <figcaption className="muted">The CLI tab after <code>dump all</code>: copy everything down to <code>save</code>.</figcaption>
+      </figure>
       <p className="muted"><code>diff all</code> = only what you changed (recommended). <code>dump all</code> = everything.</p>
     </div>
   );
