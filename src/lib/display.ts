@@ -14,10 +14,12 @@ export interface Line {
 export type Item =
   | { type: "line"; line: Line }
   | { type: "fold"; id: string; rows: number; lines: Line[] }
+  | { type: "unfold"; id: string; rows: number; end: boolean }
   | { type: "note"; row: number };
 
 const CHANGED: Outcome[] = ["renamed", "transformed", "merged"];
 const FOLD_MIN = 6;  // rows; shorter unchanged runs stay visible
+const HIDE_BOTH_ENDS = 20;  // middle rows; longer open folds get a "hide" bar at the bottom too
 
 export function tone(r: Row): Line["tone"] {
   if (r.kind === "header" || r.kind === "new") return "header";
@@ -61,8 +63,9 @@ export function hasNote(r: Row, mode: NotesMode): boolean {
 
 export type NotesMode = "attention" | "all" | "off";
 
-/** Display items: lines, folded runs of unchanged rows, and note rows under the rows that have one. */
-export function items(rows: Row[], all: Line[], opts: { showUnchanged: boolean; expanded: Set<string>;
+/** Display items: lines, folded runs of unchanged rows, and note rows under the rows that have one.
+ *  A fold is open when `showUnchanged` XOR its id is in `toggled`; an open fold gets "hide" bars. */
+export function items(rows: Row[], all: Line[], opts: { showUnchanged: boolean; toggled: Set<string>;
                                                        notes: NotesMode }): Item[] {
   const out: Item[] = [];
   let run: Line[] = [];
@@ -70,13 +73,18 @@ export function items(rows: Row[], all: Line[], opts: { showUnchanged: boolean; 
   const flush = () => {
     if (!run.length) return;
     const id = `fold-${run[0].row}`;
-    if (!opts.showUnchanged && runRows() >= FOLD_MIN && !opts.expanded.has(id)) {
+    if (runRows() >= FOLD_MIN) {
       // keep one line of context on each side of the fold
       const head = run.filter((l) => l.row === run[0].row);
       const tail = run.filter((l) => l.row === run[run.length - 1].row);
       const middle = run.filter((l) => !head.includes(l) && !tail.includes(l));
+      const n = new Set(middle.map((l) => l.row)).size;
       head.forEach((line) => out.push({ type: "line", line }));
-      out.push({ type: "fold", id, rows: new Set(middle.map((l) => l.row)).size, lines: middle });
+      if (opts.showUnchanged !== opts.toggled.has(id)) {
+        out.push({ type: "unfold", id, rows: n, end: false });
+        middle.forEach((line) => out.push({ type: "line", line }));
+        if (n > HIDE_BOTH_ENDS) out.push({ type: "unfold", id, rows: n, end: true });
+      } else out.push({ type: "fold", id, rows: n, lines: middle });
       tail.forEach((line) => out.push({ type: "line", line }));
     } else run.forEach((line) => out.push({ type: "line", line }));
     run = [];
