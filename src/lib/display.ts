@@ -19,7 +19,7 @@ export type Item =
 
 const CHANGED: Outcome[] = ["renamed", "transformed", "merged"];
 const FOLD_MIN = 6;  // rows; shorter unchanged runs stay visible
-const HIDE_BOTH_ENDS = 20;  // middle rows; longer open folds get a "hide" bar at the bottom too
+const HIDE_BOTH_ENDS = 20;  // rows; longer open folds get a "hide" bar at the bottom too
 
 export function tone(r: Row): Line["tone"] {
   if (r.kind === "header" || r.kind === "new") return "header";
@@ -73,19 +73,13 @@ export function items(rows: Row[], all: Line[], opts: { showUnchanged: boolean; 
   const flush = () => {
     if (!run.length) return;
     const id = `fold-${run[0].row}`;
-    if (runRows() >= FOLD_MIN) {
-      // keep one line of context on each side of the fold
-      const head = run.filter((l) => l.row === run[0].row);
-      const tail = run.filter((l) => l.row === run[run.length - 1].row);
-      const middle = run.filter((l) => !head.includes(l) && !tail.includes(l));
-      const n = new Set(middle.map((l) => l.row)).size;
-      head.forEach((line) => out.push({ type: "line", line }));
+    const n = runRows();
+    if (n >= FOLD_MIN) {  // the whole run folds into one bar
       if (opts.showUnchanged !== opts.toggled.has(id)) {
         out.push({ type: "unfold", id, rows: n, end: false });
-        middle.forEach((line) => out.push({ type: "line", line }));
+        run.forEach((line) => out.push({ type: "line", line }));
         if (n > HIDE_BOTH_ENDS) out.push({ type: "unfold", id, rows: n, end: true });
-      } else out.push({ type: "fold", id, rows: n, lines: middle });
-      tail.forEach((line) => out.push({ type: "line", line }));
+      } else out.push({ type: "fold", id, rows: n, lines: run });
     } else run.forEach((line) => out.push({ type: "line", line }));
     run = [];
   };
