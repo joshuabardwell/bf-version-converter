@@ -12,7 +12,7 @@ const post = (m: FromWorker) => (self as unknown as Worker).postMessage(m);
 let convert: ((requestJson: string) => string) | null = null;
 
 async function start() {
-  post({ type: "status", stage: "Loading Python…" });
+  post({ type: "status", stage: "Loading converter…" });
   const { loadPyodide } = await import(/* @vite-ignore */ `${PYODIDE}pyodide.mjs`);
   const py = await loadPyodide({ indexURL: PYODIDE });
 
