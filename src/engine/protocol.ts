@@ -14,7 +14,7 @@ export interface Row {
   lines: string[];              // what this row writes into the converted text
   group: string | null;         // ties a merge's inputs to the merged line
   suggest: string[];            // close known names, for an unrecognized line
-  notes: { note?: string; detail?: string }[];
+  notes: { note?: string | null; detail?: string | null }[];
   prs: { n: number; title: string }[];
 }
 
@@ -43,10 +43,14 @@ export interface Response {
   rows?: Row[];
 }
 
+/** minimal: labels only, reasons in the app; verbose: each change followed by its explanation block. */
+export type OutputMode = "minimal" | "verbose";
+
 export interface Request {
   text: string;
   src_series: string | null;    // null: from the header
   dst_series: string;
+  mode: OutputMode;
 }
 
 export interface Series { series: string; tag: string; covers: string[] }

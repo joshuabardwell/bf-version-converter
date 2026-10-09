@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, DownloadSimple, SpinnerGap, Warning } from "@phosphor-icons/react";
 import { useEngine } from "./engine/useEngine";
-import type { Response, Row } from "./engine/protocol";
+import type { OutputMode, Response, Row } from "./engine/protocol";
 import { DiffView, type DiffHandle } from "./components/DiffView";
 import { Helper, HowItWorks, Paste } from "./components/parts";
 import { counts, type NotesMode } from "./lib/display";
@@ -12,12 +12,13 @@ export default function App() {
   const [dst, setDst] = useState<string>("");
   const [editing, setEditing] = useState(false);
   const [notes, setNotes] = useState<NotesMode>("attention");
+  const [mode, setMode] = useState<OutputMode>("minimal");
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [copied, setCopied] = useState(false);
   const [about, setAbout] = useState(false);
   const diff = useRef<DiffHandle>(null);
 
-  const engine = useEngine(text, src === "auto" ? null : src, dst || null);
+  const engine = useEngine(text, src === "auto" ? null : src, dst || null, mode);
   const series = engine.manifest?.series ?? [];
   const target = engine.target;
   const res = engine.response;
@@ -74,6 +75,13 @@ export default function App() {
         <span className="grow">
           {c.attention > 0 && <button className="link" onClick={() => diff.current?.nextAttention()}>
             <ArrowDown size={12} /> next attention</button>}
+          <span className="seg" role="group" aria-label="Output">
+            {(["minimal", "verbose"] as OutputMode[]).map((m) => (
+              <button key={m} className={mode === m ? "on" : undefined} aria-pressed={mode === m} onClick={() => setMode(m)}
+                      title={m === "minimal" ? "Short labels in the text; the reasons are in the notes here"
+                        : "Every change followed by its explanation, PRs included"}>
+                {{ minimal: "Minimal", verbose: "Verbose" }[m]}</button>))}
+          </span>
           <button className="btn" onClick={() => download(res.text!)} title="Download as a .txt file">
             <DownloadSimple size={14} /> .txt</button>
           <button className="btn primary" onClick={() => copy(res.text!)}>

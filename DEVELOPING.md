@@ -10,6 +10,7 @@ npm install
 npm run dev          # http://localhost:5173/bf-version-converter/
 npm run build        # type-check + production build
 npm run preview      # serve the production build
+npm test             # unit tests (Node's built-in runner; src/**/*.test.ts)
 ```
 
 - **Windows PowerShell:** if `npm` is blocked by the script policy, use `npm.cmd` (or run
@@ -35,7 +36,12 @@ src/
   engine/useEngine.ts       React hook: starts the worker on page load, converts (debounced 250 ms)
   engine/protocol.ts        types of the engine's response (rows, outcomes, detection)
   lib/display.ts            engine rows -> aligned side-by-side lines, folds, note rows, counts
+  styling/                  text styling engine: rules -> roles per span (pure TS, no React/DOM)
+    engine.ts                 line rules, token rules, trackers (state across lines), extend()
+    rules/betaflight.ts       the Configurator CLI tab's colouring, as rules (the baseline)
+    rules/index.ts            appRules: the baseline extended with the converter's own categories
   components/DiffView.tsx   the diff grid, folds, note rows, minimap, next-attention
+  components/StyledText.tsx renders styled spans as role classes (?styles shows roles on hover)
   components/parts.tsx      helper (empty state), paste box, "How it works"
   App.tsx                   page state: versions, edge states, edit mode, copy/download, banner
   styles.css                design tokens (Nocturne + attention amber) and all styles
@@ -46,7 +52,9 @@ scripts/browser-parity.mjs
 **Data flow.** The worker loads Pyodide, unpacks `bfmap-engine.zip` into `/engine`, parses the
 manifest and every pair once, and exposes one call: `app_convert(request)`, JSON in and out.
 
-- Request: `{text, src_series (null = from the header), dst_series}`.
+- Request: `{text, src_series (null = from the header), dst_series, mode}`. `mode` is the Output toggle:
+  `minimal` (labels only; the reasons are in the note rows) or `verbose` (each change followed by its
+  explanation block, wrapped at 100 characters, PRs cited inline).
 - Response: `status` (`converted`, `same`, `need_source`, `unsupported`, `empty`, `not_cli`),
   `detect` (version, platform, board, kind), and when converted: `text` (exactly what Copy copies,
   header included), `attention_lines`, and `rows`. Each row is one line of the pasted text (or a line the
@@ -64,11 +72,17 @@ manifest and every pair once, and exposes one call: `app_convert(request)`, JSON
   values, our own rules and explanations, and PR numbers/titles only.
 - The site stores nothing and sends the pasted text nowhere: keep it that way (no analytics, no
   storage of configurations).
+- **All colouring of CLI text goes through `src/styling`.** Components never pick colours for text. A new
+  category is a `Role` (styling/types.ts), a named rule in `rules/index.ts` and a theme entry
+  (`.r-<role>` in styles.css). Rules may read the converter's row facts (`StyleLine.row`) but never
+  decide conversion. Outcome (changed/attention/muted) is a row background; syntax is the text colour.
+  `rules/betaflight.ts` mirrors the Configurator exactly, quirks included; deviations go in `appRules`.
 - Explanations shown to pilots never name a Configurator tab; they say how to set a value in the CLI.
   The tool is called the "Betaflight Configurator App".
 
 ## Design
 
-Dark, compact UI in Inter (JetBrains Mono for CLI text), outlined accent buttons, 8 px radii. Amber is
-reserved for lines that need the pilot's attention. Unchanged lines are quiet, changed lines a light
-accent tint, attention lines amber. Mobile: v1 shows a "works best on a bigger screen" note.
+Dark, compact UI in Inter (JetBrains Mono for CLI text), outlined accent buttons, 8 px radii. CLI text is
+coloured like the Configurator's CLI tab (white on near-black, syntax colours). Amber is reserved for
+lines that need the pilot's attention. Unchanged lines are quiet, changed lines a light accent tint,
+attention lines an amber tint, removed lines dimmed. Mobile: v1 shows a "works best on a bigger screen" note.

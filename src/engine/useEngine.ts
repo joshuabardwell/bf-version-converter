@@ -1,7 +1,7 @@
 // The converter as a React hook: starts the worker on page open (so Python is usually ready by the
-// time the pilot pastes) and converts, debounced, whenever the text or the versions change.
+// time the pilot pastes) and converts, debounced, whenever the text, the versions or the output mode change.
 import { useEffect, useRef, useState } from "react";
-import type { FromWorker, Manifest, Response } from "./protocol";
+import type { FromWorker, Manifest, OutputMode, Response } from "./protocol";
 
 export interface EngineState {
   stage: string | null;        // loading progress, null once ready
@@ -12,7 +12,8 @@ export interface EngineState {
   target: string;              // the target series (the latest unless chosen)
 }
 
-export function useEngine(text: string, src: string | null, dst: string | null, delayMs = 250): EngineState {
+export function useEngine(text: string, src: string | null, dst: string | null, mode: OutputMode,
+                          delayMs = 250): EngineState {
   const worker = useRef<Worker | null>(null);
   const lastId = useRef(0);
   const [manifest, setManifest] = useState<Manifest | null>(null);
@@ -42,10 +43,10 @@ export function useEngine(text: string, src: string | null, dst: string | null, 
     setBusy(true);
     const t = setTimeout(() => {
       const id = ++lastId.current;
-      worker.current?.postMessage({ type: "convert", id, request: { text, src_series: src, dst_series: target } });
+      worker.current?.postMessage({ type: "convert", id, request: { text, src_series: src, dst_series: target, mode } });
     }, delayMs);
     return () => clearTimeout(t);
-  }, [manifest, text, src, target, delayMs]);
+  }, [manifest, text, src, target, mode, delayMs]);
 
   return { stage, error, manifest, response, busy, target };
 }

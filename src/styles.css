@@ -11,6 +11,9 @@
   --amber-6: rgba(224, 178, 90, .06); --amber-13: rgba(224, 178, 90, .13);
   --accent-7: rgba(145, 132, 217, .07); --accent-14: rgba(145, 132, 217, .14);
   --border: #3d4057; --rule: #2c2f42; --fold: #1c1e2b;
+  /* CLI text: Betaflight Configurator's CLI tab (dark theme), roles from src/styling */
+  --cli-bg: #050505; --cli-text: #ffffff;
+  --syn-comment: #7f848e; --syn-command: #61afef; --syn-label: #61afef; --syn-number: #e5c07b; --syn-error: #ff0000;
   --s1: 2.8px; --s2: 5.6px; --s3: 8.4px; --s4: 11.2px; --s5: 16.8px; --s6: 22.4px;
   --r1: 4px; --r2: 8px; --r3: 14px;
   --shadow-sm: 0 0 0 1px #3f424d;
@@ -50,6 +53,11 @@ button.chip:hover, button.chip.on { border-color: var(--accent); color: var(--a3
 select { font: 500 13.5px var(--ui); color: var(--text); background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r2); padding: 7px 10px; }
 select.amber-field { border-color: var(--amber-border); }
+.seg { display: inline-flex; border: 1px solid var(--n700); border-radius: var(--r2); overflow: hidden; }
+.seg button { font: 500 12.5px/1 var(--ui); color: var(--n500); background: transparent; border: 0; padding: 7px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--n700); }
+.seg button:hover { color: var(--text); }
+.seg button.on { color: var(--a300); background: var(--a900); }
 .tag { border: 1px solid var(--n700); border-radius: 999px; padding: 2px 9px; font-size: 12px; color: var(--n300); }
 
 /* version row */
@@ -68,7 +76,7 @@ select.amber-field { border-color: var(--amber-border); }
 .paste .bar { display: flex; align-items: center; gap: var(--s3); }
 .paste .bar h2 { margin: 0; }
 .paste .bar .btn:first-of-type { margin-left: auto; }
-textarea.cli { flex: 1; min-height: 420px; width: 100%; resize: vertical; background: var(--bg); color: var(--text);
+textarea.cli { flex: 1; min-height: 420px; width: 100%; resize: vertical; background: var(--cli-bg); color: var(--cli-text);
   border: 1px solid var(--border); border-radius: var(--r2); padding: var(--s4); font: 11.5px/1.7 var(--mono); }
 textarea.cli.drop { border-color: var(--accent); }
 .steps { list-style: none; margin: 0 0 var(--s4); padding: 0; display: grid; gap: var(--s3); }
@@ -84,7 +92,7 @@ textarea.cli.drop { border-color: var(--accent); }
 
 /* diff */
 .diffwrap { display: grid; grid-template-columns: 1fr 14px; gap: 8px; }
-.diff { border: 1px solid var(--border); border-radius: var(--r2); overflow: hidden; background: var(--bg); }
+.diff { border: 1px solid var(--border); border-radius: var(--r2); overflow: hidden; background: var(--cli-bg); }
 .diff .heads { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
 .diff .heads > div { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); flex-wrap: wrap; }
 .diff .heads > div + div { border-left: 1px solid var(--rule); }
@@ -96,18 +104,25 @@ textarea.cli.drop { border-color: var(--accent); }
 .grid { display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px minmax(0, 1fr); font: 11.5px/1.7 var(--mono); }
 .grid.right-only { grid-template-columns: 38px minmax(0, 1fr); }
 .grid > .n { color: var(--n700); text-align: right; padding-right: 8px; user-select: none; }
-.grid > .t { white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+.grid > .t { color: var(--cli-text); white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
 .grid > .t:hover { overflow: visible; white-space: pre-wrap; word-break: break-all; }
 .grid > .n.r { border-left: 1px solid var(--rule); }
 .grid > .t.left { cursor: text; }
+/* outcome (src/lib/display.ts tone): row background only; muted rows dim their text */
 .c-changed.left, .c-changed.lnum { background: var(--accent-7); }
 .c-changed.right, .c-changed.rnum { background: var(--accent-14); }
 .c-attention.left, .c-attention.lnum { background: var(--amber-6); }
 .c-attention.right, .c-attention.rnum { background: var(--amber-13); }
-.c-attention.right { color: var(--amber-text); }
-.c-muted.left, .c-muted.right { color: var(--n500); }
-.c-header.right { color: var(--n300); background: var(--accent-7); }
-.c-header.rnum { background: var(--accent-7); }
+.c-muted.left, .c-muted.right { opacity: .5; }
+.c-header.right, .c-header.rnum { background: var(--accent-7); }
+
+/* syntax (src/styling roles): the only place role colours live. Later rules win, so the innermost
+   role shows: a number in a comment is a number. */
+.r-comment { color: var(--syn-comment); }
+.r-command { color: var(--syn-command); }
+.r-label { color: var(--syn-label); }
+.r-number { color: var(--syn-number); }
+.r-error { color: var(--syn-error); font-weight: bold; }
 .underline { text-decoration: underline wavy var(--amber-border); text-underline-offset: 3px; }
 .fold { grid-column: 1 / -1; text-align: center; color: var(--n500); background: var(--fold); cursor: pointer; border: 0; font: inherit; padding: 0; }
 .fold:hover { color: var(--text); }

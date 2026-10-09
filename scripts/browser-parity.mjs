@@ -1,6 +1,6 @@
 // Browser parity: the built app, in headless Chromium, converts each case exactly like the Python engine.
 //   PARITY_CASES=<cases.json> npm run test:browser       (cases come from the private pipeline)
-// Each case: {name, text, to, expected, attention}. The app is served from dist/ by `vite preview`,
+// Each case: {name, text, to, mode, expected, attention}; the test sets the Output toggle to `mode`. The app is served from dist/ by `vite preview`,
 // loads Pyodide from the CDN and the bundle from public/engine, and the test reads what Copy writes.
 import { readFileSync } from "node:fs";
 import { preview } from "vite";
@@ -30,6 +30,10 @@ try {
     await page.locator("#to").selectOption(c.to);
     await page.getByLabel("Your Betaflight CLI text").fill(c.text);
     const t1 = Date.now();
+    await page.getByRole("button", { name: /^Copy \d+ lines?$/ }).first().waitFor({ timeout: 60_000 });
+    const seg = page.getByRole("group", { name: "Output" })
+      .getByRole("button", { name: c.mode === "verbose" ? "Verbose" : "Minimal" });
+    if ((await seg.getAttribute("aria-pressed")) !== "true") await seg.click();
     // wait for this case's result: the button shows the expected text's line count
     const n = c.expected.replace(/\n$/, "").split("\n").length;
     const copy = page.getByRole("button", { name: `Copy ${n} lines` }).first();

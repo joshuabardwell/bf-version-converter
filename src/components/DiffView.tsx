@@ -4,6 +4,8 @@ import { Fragment, forwardRef, useImperativeHandle, useMemo, useRef, useState } 
 import { CaretDown, CaretRight } from "@phosphor-icons/react";
 import type { Row } from "../engine/protocol";
 import { type Item, type Line, type NotesMode, items as buildItems, lines as buildLines } from "../lib/display";
+import { appRules, styleDocument, type Span, type StyleLine } from "../styling";
+import { StyledText } from "./StyledText";
 
 export interface DiffHandle { nextAttention: () => void; first: () => void }
 
@@ -31,6 +33,7 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
   const all = useMemo(() => buildLines(p.rows, p.input), [p.rows, p.input]);
   const shown = useMemo(() => buildItems(p.rows, all, { showUnchanged: p.showUnchanged, toggled, notes: p.notes }),
     [p.rows, all, p.showUnchanged, toggled, p.notes]);
+  const styled = useMemo(() => styleColumns(all, p.rows), [all, p.rows]);
   const attentionRows = useMemo(() => [...new Set(all.filter((l) => l.attention).map((l) => l.row))], [all]);
 
   const goTo = (row: number) => {
@@ -59,12 +62,12 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
     const left = !p.rightOnly && [
       <div key="ln" className={`n lnum ${c}`} data-row={l.row}>{l.left?.n ?? ""}</div>,
       <div key="lt" className={`t left ${c}${l.outcome === "unrecognized" && l.left ? " underline" : ""}`}
-           onClick={p.onEditLeft}>{l.left?.text ?? ""}</div>,
+           onClick={p.onEditLeft}>{l.left && <StyledText spans={styled.left.get(l)!} />}</div>,
     ];
     return [
       ...(left || []),
       <div key="rn" className={`n r rnum ${c}`} data-row={l.row}>{l.right?.n ?? ""}</div>,
-      <div key="rt" className={`t right ${c}`}>{l.right?.text ?? ""}</div>,
+      <div key="rt" className={`t right ${c}`}>{l.right && <StyledText spans={styled.right.get(l)!} />}</div>,
     ];
   };
 
@@ -151,6 +154,20 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
   );
 });
 
+/** Each column styled as one document, in order, with its rows' facts from the engine. */
+function styleColumns(all: Line[], rows: Row[]): Record<"left" | "right", Map<Line, Span[]>> {
+  const column = (side: "left" | "right") => {
+    const shown = all.filter((l) => l[side]);
+    const input: StyleLine[] = shown.map((l) => {
+      const r = rows[l.row];
+      return { text: l[side]!.text, side, row: { kind: r.kind, outcome: r.outcome, attention: r.attention, entity: r.entity } };
+    });
+    const spans = styleDocument(input, appRules);
+    return new Map(shown.map((l, k) => [l, spans[k]]));
+  };
+  return { left: column("left"), right: column("right") };
+}
+
 function label(r: Row): string {
   return { renamed: "Renamed", transformed: "Converted", merged: "Merged", removed: "Removed", dropped: "Dropped",
            reset: "Reset", reinterpreted: "Changed meaning", unrecognized: "Not recognized", unchanged: "Note" }[r.outcome];
@@ -159,7 +176,7 @@ function label(r: Row): string {
 const prUrl = (n: string | number) => `https://github.com/betaflight/betaflight/pull/${n}`;
 
 /** Pilot text with `inline code` rendered as code and "PR #123" linked to the pull request. */
-function rich(s?: string) {
+function rich(s?: string | null) {
   if (!s) return null;
   return s.split(/(`[^`]+`|PR #\d+)/).map((part, i) => {
     if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="accent">{part.slice(1, -1)}</code>;
