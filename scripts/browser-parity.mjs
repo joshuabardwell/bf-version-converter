@@ -2,6 +2,8 @@
 //   PARITY_CASES=<cases.json> npm run test:browser       (cases come from the private pipeline)
 // Each case: {name, text, to, mode, expected, attention}; the test sets the Output toggle to `mode`. The app is served from dist/ by `vite preview`,
 // loads Pyodide from the CDN and the bundle from public/engine, and the test reads what Copy writes.
+// Explorer cases ({explorer: true, hop, entity, mode, expected: [lines per example]}) open the map
+// explorer at #maps/<hop>/<entity> and read each example's converted column.
 import { readFileSync } from "node:fs";
 import { preview } from "vite";
 import { chromium } from "playwright";
@@ -23,7 +25,7 @@ try {
   const t0 = Date.now();
   await page.getByText("Converts as you paste").waitFor({ timeout: 120_000 });
   console.log(`engine ready in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
-  for (const c of cases) {
+  for (const c of cases.filter((x) => !x.explorer)) {
     await page.evaluate(() => { window.__copied = null; });
     if (await page.getByRole("button", { name: "edit or paste again" }).isVisible().catch(() => false))
       await page.getByRole("button", { name: "edit or paste again" }).click();
@@ -50,6 +52,45 @@ try {
     }
     await page.keyboard.press("Escape");
     await page.locator("body").click({ position: { x: 5, y: 5 } });
+  }
+  const ex = cases.filter((x) => x.explorer);
+  let exFailed = 0;
+  const t2 = Date.now();
+  for (const c of ex) {
+    await page.evaluate((h) => { location.hash = h; }, `#maps/${c.hop}/${c.entity}`);
+    const seg = page.getByRole("group", { name: "Output" })
+      .getByRole("button", { name: c.mode === "verbose" ? "Verbose" : "Minimal" });
+    if ((await seg.getAttribute("aria-pressed")) !== "true") await seg.click();
+    const card = page.locator(".edetail-card");
+    let got = null;
+    // the examples, then "Try your own line": wait until every one has converted (for this mode)
+    for (let i = 0; i < 200; i++) {
+      got = await card.evaluate((el, h) => {
+        if (!el.querySelector("h2") || location.hash !== h) return null;
+        const exs = [...el.querySelectorAll(".example")];
+        if (exs.some((x) => x.querySelector(".loading"))) return null;
+        // lines of the converted text: a numbered right cell (a row that writes nothing has none)
+        return exs.map((x) => [...x.querySelectorAll(".grid > .t.right")]
+          .filter((t) => t.previousElementSibling?.textContent).map((t) => t.textContent));
+      }, `#maps/${c.hop}/${c.entity}`).catch(() => null);
+      if (got && got.length === c.expected.length + 1 && JSON.stringify(got.slice(0, -1)) === JSON.stringify(c.expected)) break;
+      await page.waitForTimeout(50);
+    }
+    const ok = !!got && JSON.stringify(got.slice(0, -1)) === JSON.stringify(c.expected);
+    if (!ok) {
+      exFailed++;
+      console.log(`FAIL ${c.name}
+   want: ${JSON.stringify(c.expected).slice(0, 400)}
+   got:  ${JSON.stringify(got).slice(0, 400)}`);
+    }
+  }
+  if (ex.length) console.log(`explorer: ${ex.length - exFailed}/${ex.length} PASS (${((Date.now() - t2) / 1000).toFixed(1)} s)`);
+  failed += exFailed;
+  if (process.env.SCREENSHOT) {
+    await page.evaluate(() => { location.hash = "#maps/4.5-2025.12/set:motor_idle"; });
+    await page.waitForTimeout(1500);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: process.env.SCREENSHOT, fullPage: true });
   }
   if (errors.length) { failed++; console.log("page errors:", errors); }
 } finally {

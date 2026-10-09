@@ -70,3 +70,21 @@ export type FromWorker =
   | { type: "ready"; manifest: Manifest }
   | { type: "result"; id: number; response: Response }
   | { type: "error"; id?: number; message: string };
+
+/** What the map explorer reads from a pair's bundle file (data/<a>_to_<b>.json, `bfmap bundle`). */
+export interface Example {
+  text: string;                 // the input, as a pilot would paste it
+  o: Outcome;                   // the converter's outcome for it (the explorer converts it again, live)
+  att: boolean;
+  keys: string[];               // pilot-text entries it brings up
+  via?: string;                 // listed under a successor: the entity whose line it is
+}
+export interface PairDoc {
+  a: string;
+  b: string;
+  entities: Record<string, { presence: "both" | "a_only" | "b_only"; forward: string; reverse: string;
+                             prs?: { n: number; title: string }[] }>;
+  pilot_text: Record<string, { cls?: string; comment?: string; reason?: string }>;
+  pilot_reasons: Record<string, { note?: string; detail?: string }>;
+  examples: Record<string, { upgrade?: Example[]; downgrade?: Example[] }>;
+}

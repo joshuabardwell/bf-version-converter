@@ -40,10 +40,13 @@ src/
     engine.ts                 line rules, token rules, trackers (state across lines), extend()
     rules/betaflight.ts       the Configurator CLI tab's colouring, as rules (the baseline)
     rules/index.ts            appRules: the baseline extended with the converter's own categories
-  components/DiffView.tsx   the diff grid, folds, note rows, minimap, next-attention
+  components/DiffView.tsx   the diff grid, folds, note rows, minimap, next-attention (compact: the explorer's examples)
+  components/Explorer.tsx   the map explorer (#maps/<from>-<to>/<entity>): every entry of a version step, its
+                            example lines converted live by the engine and shown as the converter shows them
   components/StyledText.tsx renders styled spans as role classes (?styles shows roles on hover)
   components/parts.tsx      helper (empty state), paste box, "How it works"
-  App.tsx                   page state: versions, edge states, edit mode, copy/download, banner
+  App.tsx                   page state: versions, edge states, edit mode, copy/download, banner; #maps routing
+  engine/client.ts          the page's one engine worker, shared by the converter and the explorer
   styles.css                design tokens (Nocturne + attention amber) and all styles
 scripts/browser-parity.mjs
 .github/workflows/pages.yml  build + deploy to GitHub Pages on push to main
@@ -62,6 +65,10 @@ manifest and every pair once, and exposes one call: `app_convert(request)`, JSON
   note and detail), `prs`, `group` (a merge), `suggest` (for an unrecognized name).
 - The app never decides conversion: outcomes, attention, wording and the converted text all come from
   the engine. The UI decides presentation only.
+- **Map explorer.** Each pair file also carries `examples` (from `bfmap bundle`): per entity and direction,
+  the lines that reach each different result. The explorer lists them and converts each one live through the
+  same worker, so it shows exactly what pasting that line would. Its only other inputs are the bundle's
+  entities (presence, PR numbers) and pilot text. A map change reaches it by re-bundling, like the converter.
 
 ## Rules
 

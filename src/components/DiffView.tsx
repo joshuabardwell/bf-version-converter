@@ -19,6 +19,7 @@ interface Props {
   onApplySuggestion?: (row: Row, name: string) => void;
   onKeepAsComment?: (row: Row) => void;
   header: React.ReactNode;
+  compact?: boolean;           // a few lines (the map explorer): no minimap, no fixed height
 }
 
 export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) {
@@ -184,7 +185,8 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
     { i: number; row: number; att: boolean; mut: boolean }[];
 
   return (
-    <div className="diffwrap" style={p.rightOnly ? { gridTemplateColumns: "1fr 14px" } : undefined}>
+    <div className={`diffwrap${p.compact ? " compact" : ""}`}
+         style={p.rightOnly && !p.compact ? { gridTemplateColumns: "1fr 14px" } : undefined}>
       <div className={`diff${dragging ? " dragging" : ""}`}
            style={{ "--cols": cols, "--sb": `${box.sb}px` } as React.CSSProperties}>
         {p.header}
@@ -212,11 +214,11 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
           </div>
         </div>
       </div>
-      <div className="minimap" aria-label="Changes in the converted text">
+      {!p.compact && <div className="minimap" aria-label="Changes in the converted text">
         {ticks.map((t) => (
           <i key={`${t.i}`} className={t.att ? "att" : t.mut ? "mut" : ""} style={{ top: `${(100 * t.i) / total}%` }}
              onClick={() => goTo(t.row)} title={t.att ? "needs your attention" : "converted"} />))}
-      </div>
+      </div>}
     </div>
   );
 });
@@ -240,7 +242,7 @@ function styleColumns(all: Line[], rows: Row[]): Record<"left" | "right", Map<Li
   return { left: column("left"), right: column("right") };
 }
 
-function label(r: Row): string {
+export function label(r: Pick<Row, "outcome">): string {
   return { renamed: "Renamed", transformed: "Converted", merged: "Merged", removed: "Removed", dropped: "Dropped",
            reset: "Reset", reinterpreted: "Changed meaning", unrecognized: "Not recognized", unchanged: "Note" }[r.outcome];
 }

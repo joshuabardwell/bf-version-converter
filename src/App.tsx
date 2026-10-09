@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, DownloadSimple, SpinnerGap, Warning } from "@phosphor-icons/react";
 import { useEngine } from "./engine/useEngine";
 import type { OutputMode, Response, Row } from "./engine/protocol";
 import { DiffView, type DiffHandle } from "./components/DiffView";
 import { Helper, HowItWorks, Paste } from "./components/parts";
+import { Explorer, parseRoute, routeHash, type Route } from "./components/Explorer";
 import { counts, type NotesMode } from "./lib/display";
 
 export default function App() {
@@ -17,6 +18,14 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [about, setAbout] = useState(false);
   const diff = useRef<DiffHandle>(null);
+  // the map explorer lives at #maps…; the converter keeps its state (and pasted text) underneath
+  const [route, setRoute] = useState<Route | null>(() => parseRoute(location.hash));
+  useEffect(() => {
+    const f = () => setRoute(parseRoute(location.hash));
+    window.addEventListener("hashchange", f);
+    return () => window.removeEventListener("hashchange", f);
+  }, []);
+  const go = (r: Route | null) => { location.hash = r ? routeHash(r) : ""; };
 
   const engine = useEngine(text, src === "auto" ? null : src, dst || null, mode);
   const series = engine.manifest?.series ?? [];
@@ -95,9 +104,16 @@ export default function App() {
       <header className="top">
         <h1>bf-version-converter</h1>
         <span className="muted">for Betaflight</span>
-        <nav><button onClick={() => setAbout(true)}>How it works</button></nav>
+        <nav>
+          <button onClick={() => go(route ? null : { hop: null, entity: null })} aria-pressed={!!route}
+                  className={route ? "on" : undefined}>Version maps</button>
+          <button onClick={() => setAbout(true)}>How it works</button>
+        </nav>
       </header>
       <div className="narrow">Works best on a bigger screen. On a phone you can still paste, convert and copy.</div>
+
+      {route ? <Explorer manifest={engine.manifest} mode={mode} onMode={setMode} route={route} onRoute={go}
+                         onBack={() => go(null)} /> : <>
 
       <div className="versions">
         <label htmlFor="from">From</label>
@@ -157,8 +173,10 @@ export default function App() {
         </div>
       )}
 
+      </>}
+
       <footer className="foot">
-        {converted
+        {converted && !route
           ? <span>Next: paste into the CLI tab · press Enter · the final <code className="accent">save</code> reboots the board
             {c.attention ? ` · then work through the ${c.attention} ATTENTION ${c.attention === 1 ? "line" : "lines"}` : ""}</span>
           : <span />}
