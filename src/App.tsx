@@ -109,6 +109,8 @@ export default function App() {
         <h1>bf-version-converter</h1>
         <span className="muted">for Betaflight</span>
         <nav>
+          <a href="https://github.com/joshuabardwell/bf-version-converter" target="_blank" rel="noopener noreferrer">
+            Source Code (GitHub)</a>
           <button onClick={() => go(route ? null : { hop: null, entity: null })} aria-pressed={!!route}
                   className={route ? "on" : undefined}>Version Map Explorer</button>
           <button onClick={() => setAbout(true)}>How it works</button>
