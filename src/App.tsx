@@ -39,6 +39,8 @@ export default function App() {
   const from = res?.src_series ?? (src === "auto" ? det?.series ?? null : src);
   const downgrade = from && order.indexOf(target) < order.indexOf(from);
   const mismatch = src !== "auto" && det?.status === "detected" && det.series && det.series !== src;
+  // a patch release the drift check hasn't verified against the map's version: converted anyway, with a warning
+  const unverified = det?.status === "detected" && det.covered === false && (src === "auto" || src === det.series);
 
   const copy = async (t: string) => {
     await navigator.clipboard.writeText(t);
@@ -121,7 +123,7 @@ export default function App() {
         <label htmlFor="from">From</label>
         <select id="from" value={src} onChange={(e) => setSrc(e.target.value)}
                 className={!empty && res?.status === "need_source" ? "amber-field" : undefined}>
-          <option value="auto">{det?.status === "detected" && det.version ? `${det.version} · from header ✓` : "auto-detect"}</option>
+          <option value="auto">{det?.status === "detected" && det.version ? `${det.version} · from header${det.covered === false ? "" : " ✓"}` : "auto-detect"}</option>
           {series.map((s) => <option key={s.series} value={s.series}>{s.series}</option>)}
         </select>
         <span aria-hidden>→</span>
@@ -133,6 +135,10 @@ export default function App() {
         {downgrade && res?.status === "converted" && <span className="tag">downgrade</span>}
         {mismatch && <><span className="amber">Header says {det!.version}.</span>
           <button className="chip" onClick={() => setSrc(det!.series!)}>Use {det!.series}</button></>}
+        {unverified && <span className="amber">
+          {det!.newer ? `${det!.version} is newer than our maps, which were checked against ${det!.tag}.`
+                      : `${det!.version} isn't verified to match ${det!.tag}.`} Converted with the {det!.tag} map: check the result.
+        </span>}
         {converted ? (
           <span className="summary">
             {c.lines} {c.lines === 1 ? "line" : "lines"} · <span>{c.carried} carried over</span> · <span className="accent">{c.converted} converted</span>

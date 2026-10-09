@@ -26,7 +26,9 @@ export interface Detection {
   board: string | null;
   series: string | null;
   closest?: string | null;
-  covered?: boolean;
+  tag?: string | null;          // the series' representative, whose map converts this version
+  covered?: boolean;            // the drift check verified this exact version matches `tag`
+  newer?: boolean;              // not covered and newer than `tag`: released after the maps were checked
   reason?: string;
   first_line?: string | null;
 }
