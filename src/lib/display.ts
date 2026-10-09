@@ -111,3 +111,18 @@ export function counts(rows: Row[], attentionLines: number): Counts {
     attention: attentionLines,
   };
 }
+
+/** Where the divider goes, as the left column's share of the text width `T` (px): both columns
+ *  untruncated if they fit (spare space split evenly), else the converted column first, down to a
+ *  left column of `min`. Neither column goes below `min`. */
+export function fitSplit(T: number, needL: number, needR: number, min: number): number {
+  if (T <= 0) return 0.5;
+  const left = needL + needR <= T ? needL + (T - needL - needR) / 2 : T - Math.min(needR, T - min);
+  return clampSplit(left, T, min);
+}
+
+/** A left column of `left` px, kept at least `min` px from either edge, as a share of `T`. */
+export function clampSplit(left: number, T: number, min: number): number {
+  if (T <= 2 * min) return 0.5;
+  return Math.min(T - min, Math.max(min, left)) / T;
+}

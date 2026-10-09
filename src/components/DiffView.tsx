@@ -1,9 +1,9 @@
 // The side-by-side diff (design 2a) with folded unchanged runs, note rows (2c) and the attention
 // minimap (2b). One scroll container, so both columns scroll together.
-import { Fragment, forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CaretDown, CaretRight } from "@phosphor-icons/react";
 import type { Row } from "../engine/protocol";
-import { type Item, type Line, type NotesMode, items as buildItems, lines as buildLines } from "../lib/display";
+import { type Item, type Line, type NotesMode, clampSplit, fitSplit, items as buildItems, lines as buildLines } from "../lib/display";
 import { appRules, styleDocument, type Span, type StyleLine } from "../styling";
 import { StyledText } from "./StyledText";
 
@@ -34,6 +34,67 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
   const shown = useMemo(() => buildItems(p.rows, all, { showUnchanged: p.showUnchanged, toggled, notes: p.notes }),
     [p.rows, all, p.showUnchanged, toggled, p.notes]);
   const styled = useMemo(() => styleColumns(all, p.rows), [all, p.rows]);
+  // the divider: the left text column's share of the text width. Fitted to the longest lines when a
+  // paste is shown and on resize; a drag holds until the next paste, a double-click re-fits.
+  const [split, setSplit] = useState(0.5);
+  const [dragging, setDragging] = useState(false);
+  const [box, setBox] = useState({ width: 0, sb: 0, charW: 0 });  // scroller's inner width, its scrollbar, one mono char
+  const probe = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const measure = () => setBox({ width: el.clientWidth, sb: el.offsetWidth - el.clientWidth,
+                                   charW: (probe.current?.offsetWidth ?? 0) / PROBE.length });
+    measure();
+    document.fonts?.ready.then(measure);  // the mono font may arrive after the first layout
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);  // content growing past the fold adds a scrollbar
+    return () => ro.disconnect();
+  }, []);
+  const widest = useMemo(() => {
+    const len = (t: string) => t.replace(/	/g, "        ").length;
+    let left = 0, right = 0;
+    for (const l of all) {
+      if (l.left) left = Math.max(left, len(l.left.text));
+      // the converter's own banner is long and not worth the room
+      if (l.right && p.rows[l.row].kind !== "header") right = Math.max(right, len(l.right.text));
+    }
+    return { left, right };
+  }, [all, p.rows]);
+  const T = box.width - 2 * NUM;
+  const floor = MIN_CHARS * box.charW + PAD;
+  const fit = () => setSplit(fitSplit(T, widest.left * box.charW + PAD, widest.right * box.charW + PAD, floor));
+  const manual = useRef(false);
+  const fitted = useRef<{ input: string; width: number; charW: number } | null>(null);
+  useLayoutEffect(() => {
+    if (p.rightOnly || !box.width || !box.charW) return;
+    const last = fitted.current;
+    const fresh = !last || last.input !== p.input;
+    if (!fresh && (manual.current || (last.width === box.width && last.charW === box.charW))) return;
+    fitted.current = { input: p.input, width: box.width, charW: box.charW };
+    manual.current = false;
+    fit();
+  });  // every render: cheap, and the checks above decide (Minimal/Verbose alone doesn't re-fit)
+  const cols = p.rightOnly ? `${NUM}px minmax(0, 1fr)`
+    : `${NUM}px minmax(0, ${split}fr) ${NUM}px minmax(0, ${1 - split}fr)`;
+  const divider = NUM + split * Math.max(0, T);
+  const drag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const left = scroller.current!.getBoundingClientRect().left;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    setDragging(true);
+    manual.current = true;
+    const move = (ev: PointerEvent) => setSplit(clampSplit(ev.clientX - left - NUM, T, floor));
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDragging(false);
+    };
+    handle.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const refit = () => { manual.current = false; fit(); };
   const attentionRows = useMemo(() => [...new Set(all.filter((l) => l.attention).map((l) => l.row))], [all]);
 
   const goTo = (row: number) => {
@@ -124,10 +185,16 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
 
   return (
     <div className="diffwrap" style={p.rightOnly ? { gridTemplateColumns: "1fr 14px" } : undefined}>
-      <div className="diff">
+      <div className={`diff${dragging ? " dragging" : ""}`}
+           style={{ "--cols": cols, "--sb": `${box.sb}px` } as React.CSSProperties}>
         {p.header}
+        {!p.rightOnly && box.width > 0 && (
+          <div className={`splitter${dragging ? " drag" : ""}`} style={{ left: divider }} onPointerDown={drag}
+               onDoubleClick={refit} role="separator" aria-orientation="vertical"
+               aria-valuenow={Math.round(split * 100)} title="Drag to resize · double-click to fit the lines" />)}
         <div className="scroll" ref={scroller}>
           <div className={`grid${p.rightOnly ? " right-only" : ""}`}>
+            <span ref={probe} className="probe" aria-hidden>{PROBE}</span>
             {shown.map((it: Item, i) => {
               if (it.type === "line") return cells(it.line);
               if (it.type === "note") return (  // under the converted column: it explains the converted line
@@ -153,6 +220,11 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
     </div>
   );
 });
+
+const NUM = 38;         // line-number column width, px
+const PAD = 14;         // a text cell's right padding (10px) and a little slack
+const MIN_CHARS = 20;   // neither text column narrower than this when fitted or dragged
+const PROBE = "0".repeat(100);
 
 /** Each column styled as one document, in order, with its rows' facts from the engine. */
 function styleColumns(all: Line[], rows: Row[]): Record<"left" | "right", Map<Line, Span[]>> {

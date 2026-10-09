@@ -92,17 +92,23 @@ textarea.cli.drop { border-color: var(--accent); }
 
 /* diff */
 .diffwrap { display: grid; grid-template-columns: 1fr 14px; gap: 8px; }
-.diff { border: 1px solid var(--border); border-radius: var(--r2); overflow: hidden; background: var(--cli-bg); }
-.diff .heads { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
-.diff .heads > div { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); flex-wrap: wrap; }
-.diff .heads > div + div { border-left: 1px solid var(--rule); }
+.diff { position: relative; border: 1px solid var(--border); border-radius: var(--r2); overflow: hidden; background: var(--cli-bg);
+        --cols: 38px minmax(0, 1fr) 38px minmax(0, 1fr); --sb: 0px; }
+/* same columns as the grid below, short of the scrollbar, so the two dividers line up */
+.diff .heads { display: grid; grid-template-columns: var(--cols); padding-right: var(--sb); border-bottom: 1px solid var(--border); }
+.diff .heads > div { grid-column: 1 / 3; display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); flex-wrap: wrap; min-width: 0; }
+.diff .heads > div + div { grid-column: 3 / 5; border-left: 1px solid var(--rule); }
+.splitter { position: absolute; top: 0; bottom: 0; width: 9px; margin-left: -4px; cursor: col-resize; z-index: 2; touch-action: none; }
+.splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 3px; background: transparent; transition: background .15s; }
+.splitter:hover::after, .splitter.drag::after { background: var(--accent); }
+.diff.dragging { user-select: none; cursor: col-resize; }
 .diff .heads .grow { margin-left: auto; display: flex; gap: var(--s3); align-items: center; }
 .diff .heads .btn, .diff .heads button.link { white-space: nowrap; }
 .diff .heads button.link { background: none; border: 0; color: var(--n500); font: inherit; cursor: pointer; padding: 0; }
 .diff .heads button.link:hover { color: var(--text); }
 .scroll { max-height: calc(100vh - 290px); min-height: 360px; overflow: auto; }
-.grid { display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px minmax(0, 1fr); font: 11.5px/1.7 var(--mono); }
-.grid.right-only { grid-template-columns: 38px minmax(0, 1fr); }
+.grid { display: grid; grid-template-columns: var(--cols); font: 11.5px/1.7 var(--mono); }
+.grid > .probe { position: absolute; top: 0; left: 0; visibility: hidden; white-space: pre; pointer-events: none; }
 .grid > .n { color: var(--n700); text-align: right; padding-right: 8px; user-select: none; }
 .grid > .t { color: var(--cli-text); white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
 .grid > .t:hover { overflow: visible; white-space: pre-wrap; word-break: break-all; }
