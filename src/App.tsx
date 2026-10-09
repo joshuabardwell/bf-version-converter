@@ -106,7 +106,7 @@ export default function App() {
         <span className="muted">for Betaflight</span>
         <nav>
           <button onClick={() => go(route ? null : { hop: null, entity: null })} aria-pressed={!!route}
-                  className={route ? "on" : undefined}>Version maps</button>
+                  className={route ? "on" : undefined}>Version Map Explorer</button>
           <button onClick={() => setAbout(true)}>How it works</button>
         </nav>
       </header>

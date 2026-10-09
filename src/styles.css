@@ -37,9 +37,11 @@ code, .mono { font-family: var(--mono); }
 /* top bar */
 .top { display: flex; align-items: baseline; gap: var(--s5); border-bottom: 1px solid var(--rule); padding-bottom: var(--s3); }
 .top h1 { font-size: 20px; line-height: 1.2; letter-spacing: -.015em; font-weight: 500; margin: 0; display: flex; gap: var(--s3); align-items: center; }
-.top nav { margin-left: auto; display: flex; gap: var(--s5); }
-.top nav button { background: none; border: 0; color: var(--n500); font: inherit; cursor: pointer; padding: 0; }
-.top nav button:hover { color: var(--text); }
+.top nav { margin-left: auto; display: flex; align-items: center; gap: var(--s5); }
+.top nav button { background: none; border: 0; color: var(--a400); font: 500 13.5px/1.45 var(--ui); cursor: pointer; padding: 0;
+  text-decoration: underline; text-decoration-color: var(--a700); text-underline-offset: 3px; }
+.top nav button:hover { color: var(--a300); text-decoration-color: currentColor; }
+.top nav button + button { border-left: 1px solid var(--n700); padding-left: var(--s5); }
 
 /* buttons, selects, chips */
 button.btn, a.btn { font: 500 12.5px/1 var(--ui); color: var(--text); background: transparent; border: 1px solid var(--n700);
@@ -177,7 +179,7 @@ textarea.cli.drop { border-color: var(--accent); }
 }
 
 /* map explorer (components/Explorer.tsx) */
-.top nav button.on { color: var(--a300); }
+.top nav button.on { color: var(--text); text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
 .search { display: inline-flex; align-items: center; gap: var(--s2); border: 1px solid var(--border); background: var(--surface);
   border-radius: var(--r2); padding: 0 10px; color: var(--n500); flex: 1; min-width: 180px; max-width: 360px; }
 .search input { background: none; border: 0; color: var(--text); font: 13.5px var(--ui); padding: 7px 0; width: 100%; outline: none; }
