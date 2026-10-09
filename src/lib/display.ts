@@ -68,13 +68,16 @@ export type NotesMode = "attention" | "all" | "off";
 export function items(rows: Row[], all: Line[], opts: { showUnchanged: boolean; toggled: Set<string>;
                                                        notes: NotesMode }): Item[] {
   const out: Item[] = [];
+  // nothing but headers and unchanged lines: folding would leave a header over a bar, which reads
+  // as no output, so everything stays open
+  const fold = all.some((l) => (l.tone !== "plain" && l.tone !== "header") || hasNote(rows[l.row], opts.notes));
   let run: Line[] = [];
   const runRows = () => new Set(run.map((l) => l.row)).size;
   const flush = () => {
     if (!run.length) return;
     const id = `fold-${run[0].row}`;
     const n = runRows();
-    if (n >= FOLD_MIN) {  // the whole run folds into one bar
+    if (fold && n >= FOLD_MIN) {  // the whole run folds into one bar
       if (opts.showUnchanged !== opts.toggled.has(id)) {
         out.push({ type: "unfold", id, rows: n, end: false });
         run.forEach((line) => out.push({ type: "line", line }));
