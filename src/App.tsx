@@ -4,7 +4,7 @@ import { useEngine } from "./engine/useEngine";
 import type { OutputMode, Response, Row } from "./engine/protocol";
 import { DiffView, type DiffHandle } from "./components/DiffView";
 import { Helper, HowItWorks, Paste } from "./components/parts";
-import { Explorer, parseRoute, routeHash, type Route } from "./components/Explorer";
+import { Explorer, ExplorerBoundary, parseRoute, routeHash, type Route } from "./components/Explorer";
 import { counts, type NotesMode } from "./lib/display";
 
 export default function App() {
@@ -112,8 +112,10 @@ export default function App() {
       </header>
       <div className="narrow">Works best on a bigger screen. On a phone you can still paste, convert and copy.</div>
 
-      {route ? <Explorer manifest={engine.manifest} mode={mode} onMode={setMode} route={route} onRoute={go}
-                         onBack={() => go(null)} /> : <>
+      {route ? <ExplorerBoundary onBack={() => go(null)}>
+                 <Explorer manifest={engine.manifest} mode={mode} onMode={setMode} route={route} onRoute={go}
+                           onBack={() => go(null)} />
+               </ExplorerBoundary> : <>
 
       <div className="versions">
         <label htmlFor="from">From</label>

@@ -17,8 +17,10 @@ async function start() {
   const py = await loadPyodide({ indexURL: PYODIDE });
 
   post({ type: "status", stage: "Loading version maps…" });
-  const manifest: Manifest = await (await fetch(`${BASE}manifest.json`)).json();
-  const zip = await (await fetch(`${BASE}${manifest.engine.file}`)).arrayBuffer();
+  // the manifest is always revalidated; every other file is fetched by its content hash, so a new
+  // bundle never meets a cached file of an older one
+  const manifest: Manifest = await (await fetch(`${BASE}manifest.json`, { cache: "no-cache" })).json();
+  const zip = await (await fetch(`${BASE}${manifest.engine.file}?v=${manifest.engine.sha256}`)).arrayBuffer();
   py.unpackArchive(zip, "zip", { extractDir: "/engine" });
   py.globals.set("MANIFEST_JSON", JSON.stringify(manifest));
   py.runPython(`
@@ -31,7 +33,7 @@ def convert_json(request_json):
     return json.dumps(app_convert(json.loads(request_json), MANIFEST, DOCS))
 `);
   for (const p of manifest.pairs) {
-    const text = await (await fetch(`${BASE}${p.file}`)).text();
+    const text = await (await fetch(`${BASE}${p.file}?v=${p.sha256}`)).text();
     py.globals.set("DOC_JSON", text);
     py.runPython(`DOCS["${p.a}_to_${p.b}"] = json.loads(DOC_JSON)`);
   }

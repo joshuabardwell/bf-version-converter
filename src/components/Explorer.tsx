@@ -1,7 +1,7 @@
 // The map explorer: every setting, command and feature of a version step, and what the converter
 // writes for it. Nothing here is the map's own wording: each example line (from the bundle, see
 // bfmap/examples.py) is converted live by the same engine as a paste, and shown the same way.
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, MagnifyingGlass } from "@phosphor-icons/react";
 import { convert } from "../engine/client";
 import type { Example, Manifest, Outcome, OutputMode, PairDoc, Row } from "../engine/protocol";
@@ -42,7 +42,7 @@ function entries(doc: PairDoc, dir: Hop["dir"]): Entry[] {
   const target = dir === "upgrade" ? "b_only" : "a_only";
   const out: Entry[] = [];
   for (const [k, e] of Object.entries(doc.entities)) {
-    const ex = doc.examples[k]?.[dir] ?? [];
+    const ex = doc.examples?.[k]?.[dir] ?? [];
     const added = e.presence === target && !ex.length;
     if (!ex.length && !added) continue;
     const worst = ex.reduce<Outcome>((w, x) => SEVERITY.indexOf(x.o) > SEVERITY.indexOf(w) ? x.o : w, "unchanged");
@@ -80,7 +80,9 @@ export function Explorer({ manifest, mode, onMode, route, onRoute, onBack }: {
   useEffect(() => {
     if (!manifest) return;
     const base = `${import.meta.env.BASE_URL}engine/`;
-    Promise.all(manifest.pairs.map(async (p) => [`${p.a}_to_${p.b}`, await (await fetch(base + p.file)).json()] as const))
+    // by content hash, as the worker loads them: never a cached file of an older bundle
+    Promise.all(manifest.pairs.map(async (p) =>
+      [`${p.a}_to_${p.b}`, await (await fetch(`${base}${p.file}?v=${p.sha256}`)).json()] as const))
       .then((xs) => setDocs(Object.fromEntries(xs)), (e) => setError(String(e?.message ?? e)));
   }, [manifest]);
 
@@ -194,6 +196,25 @@ function Detail({ e, hop, doc, mode }: { e: Entry; hop: Hop; doc: PairDoc; mode:
         </div>)}
     </div>
   );
+}
+
+/** A crash in the explorer shows its message and the way back, never a blank page. */
+export class ExplorerBoundary extends Component<{ children: ReactNode; onBack: () => void }, { error: string | null }> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(e: unknown) { return { error: String((e as Error)?.message ?? e) }; }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="card state">
+        <div className="title">The version maps couldn't be shown</div>
+        <p className="muted">{this.state.error}</p>
+        <div className="actions">
+          <button className="btn" onClick={() => location.reload()}>Reload</button>
+          <button className="btn" onClick={() => { this.setState({ error: null }); this.props.onBack(); }}>
+            <ArrowLeft size={14} /> Converter</button>
+        </div>
+      </div>);
+  }
 }
 
 /** One input, converted live by the engine, shown as the converter shows it. */
