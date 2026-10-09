@@ -29,6 +29,7 @@ export interface Detection {
   tag?: string | null;          // the series' representative, whose map converts this version
   covered?: boolean;            // the drift check verified this exact version matches `tag`
   newer?: boolean;              // not covered and newer than `tag`: released after the maps were checked
+  notes?: string[];             // what pilots pasting this exact version should know (acknowledged drift)
   reason?: string;
   first_line?: string | null;
 }
@@ -55,7 +56,7 @@ export interface Request {
   mode: OutputMode;
 }
 
-export interface Series { series: string; tag: string; covers: string[] }
+export interface Series { series: string; tag: string; covers: string[]; notes?: Record<string, string[]> }
 export interface Manifest {
   name: string;
   maps_date: string;

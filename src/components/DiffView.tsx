@@ -250,7 +250,7 @@ export function label(r: Pick<Row, "outcome">): string {
 const prUrl = (n: string | number) => `https://github.com/betaflight/betaflight/pull/${n}`;
 
 /** Pilot text with `inline code` rendered as code and "PR #123" linked to the pull request. */
-function rich(s?: string | null) {
+export function rich(s?: string | null) {
   if (!s) return null;
   return s.split(/(`[^`]+`|PR #\d+)/).map((part, i) => {
     if (part.startsWith("`") && part.endsWith("`")) return <code key={i} className="accent">{part.slice(1, -1)}</code>;

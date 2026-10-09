@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, DownloadSimple, SpinnerGap, Warning } from "@phosphor-icons/react";
 import { useEngine } from "./engine/useEngine";
 import type { OutputMode, Response, Row } from "./engine/protocol";
-import { DiffView, type DiffHandle } from "./components/DiffView";
+import { DiffView, rich, type DiffHandle } from "./components/DiffView";
 import { Helper, HowItWorks, Paste } from "./components/parts";
 import { Explorer, ExplorerBoundary, parseRoute, routeHash, type Route } from "./components/Explorer";
 import { counts, type NotesMode } from "./lib/display";
@@ -41,6 +41,8 @@ export default function App() {
   const mismatch = src !== "auto" && det?.status === "detected" && det.series && det.series !== src;
   // a patch release the drift check hasn't verified against the map's version: converted anyway, with a warning
   const unverified = det?.status === "detected" && det.covered === false && (src === "auto" || src === det.series);
+  // what the drift check found about this exact patch release that a pilot should know (scope.json pilot notes)
+  const versionNotes = det?.status === "detected" && (src === "auto" || src === det.series) ? det.notes ?? [] : [];
 
   const copy = async (t: string) => {
     await navigator.clipboard.writeText(t);
@@ -139,6 +141,7 @@ export default function App() {
           {det!.newer ? `${det!.version} is newer than our maps, which were checked against ${det!.tag}.`
                       : `${det!.version} isn't verified to match ${det!.tag}.`} Converted with the {det!.tag} map: check the result.
         </span>}
+        {versionNotes.map((n, i) => <span key={i} className="amber">{det!.version}: {rich(n)}</span>)}
         {converted ? (
           <span className="summary">
             {c.lines} {c.lines === 1 ? "line" : "lines"} · <span>{c.carried} carried over</span> · <span className="accent">{c.converted} converted</span>
