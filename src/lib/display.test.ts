@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fitSplit, items, lines } from "./display.ts";
+import { fitSplit, hasNote, items, lines } from "./display.ts";
 import type { Row } from "../engine/protocol.ts";
 
 test("both fit: spare space split evenly", () => {
@@ -33,4 +33,13 @@ test("only headers and unchanged lines: nothing folds", () => {
 test("a changed line: the unchanged run folds", () => {
   assert.equal(folds([row("header", "unchanged", "# version", 1), ...plain(2),
                       row("set", "renamed", "set b = 1", 10)]), 1);
+});
+
+test("a kept line's note: shown in all changes, and in attention only when it asks for attention", () => {
+  const kept = { ...row("set", "unchanged", "set gps_auto_baud = ON", 1), notes: [{ note: "No effect in 4.5.5." }] };
+  assert.equal(hasNote(kept, "all"), true);
+  assert.equal(hasNote(kept, "attention"), false);
+  assert.equal(hasNote({ ...kept, attention: true }, "attention"), true);
+  assert.equal(hasNote(kept, "off"), false);
+  assert.equal(hasNote(row("set", "unchanged", "set a = 1", 2), "all"), false);  // no note, nothing shown
 });

@@ -58,7 +58,7 @@ export function hasNote(r: Row, mode: NotesMode): boolean {
   if (mode === "off") return false;
   if (r.outcome === "unrecognized") return true;
   if (!r.notes.some((n) => n.note)) return false;
-  return mode === "all" ? r.outcome !== "unchanged" : r.attention;
+  return mode === "all" || r.attention;  // "all": a kept line can carry a note too (map line notes)
 }
 
 export type NotesMode = "attention" | "all" | "off";
