@@ -32,7 +32,8 @@ DOCS = {}
 def convert_json(request_json):
     return json.dumps(app_convert(json.loads(request_json), MANIFEST, DOCS))
 `);
-  for (const p of manifest.pairs) {
+  // patch maps too: a version with its own maps (4.4.0, 4.4.1) converts through them to the series' map
+  for (const p of [...manifest.pairs, ...(manifest.patch_pairs ?? [])]) {
     const text = await (await fetch(`${BASE}${p.file}?v=${p.sha256}`)).text();
     py.globals.set("DOC_JSON", text);
     py.runPython(`DOCS["${p.a}_to_${p.b}"] = json.loads(DOC_JSON)`);

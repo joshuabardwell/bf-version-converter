@@ -29,6 +29,7 @@ export interface Detection {
   tag?: string | null;          // the series' representative, whose map converts this version
   covered?: boolean;            // the drift check verified this exact version matches `tag`
   newer?: boolean;              // not covered and newer than `tag`: released after the maps were checked
+  chain?: [string, string][] | null;  // patch maps that take this version up to `tag` first
   notes?: string[];             // what pilots pasting this exact version should know (acknowledged drift)
   reason?: string;
   first_line?: string | null;
@@ -54,14 +55,20 @@ export interface Request {
   src_series: string | null;    // null: from the header
   dst_series: string;
   mode: OutputMode;
+  pair?: { a: string; b: string; direction: "upgrade" | "downgrade" };  // exactly this map (explorer patch steps)
 }
 
-export interface Series { series: string; tag: string; covers: string[]; notes?: Record<string, string[]> }
+export interface Series {
+  series: string; tag: string; covers: string[]; notes?: Record<string, string[]>;
+  chains?: Record<string, [string, string][]>;  // older patch tag -> its patch maps up to `tag`
+}
+export interface PairRef { a: string; b: string; file: string; sha256: string; bytes: number }
 export interface Manifest {
   name: string;
   maps_date: string;
   series: Series[];
-  pairs: { a: string; b: string; file: string; sha256: string; bytes: number }[];
+  pairs: PairRef[];          // between series representatives
+  patch_pairs?: PairRef[];   // inside a series: an older patch release up to the representative
   engine: { file: string; sha256: string; bytes: number };
 }
 

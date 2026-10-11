@@ -25,17 +25,21 @@ type Kind = "all" | "set" | "cmd" | "feature";
 const KIND: Record<Kind, string> = { all: "All", set: "Settings", cmd: "Commands", feature: "Features" };
 
 interface Hop { id: string; from: string; to: string; fromTag: string; toTag: string; pair: string;
-  dir: "upgrade" | "downgrade" }
+  dir: "upgrade" | "downgrade"; series: string; patch: boolean }  // patch: a map inside one series
 interface Entry { k: string; name: string; type: string; ex: Example[]; worst: Outcome; att: boolean;
   added: boolean }
 
 function hops(m: Manifest): Hop[] {
   const tag = Object.fromEntries(m.series.map((s) => [s.tag, s.series]));
-  return m.pairs.flatMap((p) => {
+  const series = m.pairs.flatMap((p) => {
     const a = tag[p.a], b = tag[p.b], pair = `${p.a}_to_${p.b}`;
-    return [{ id: `${a}-${b}`, from: a, to: b, fromTag: p.a, toTag: p.b, pair, dir: "upgrade" as const },
-            { id: `${b}-${a}`, from: b, to: a, fromTag: p.b, toTag: p.a, pair, dir: "downgrade" as const }];
+    return [{ id: `${a}-${b}`, from: a, to: b, fromTag: p.a, toTag: p.b, pair, dir: "upgrade" as const, series: a, patch: false },
+            { id: `${b}-${a}`, from: b, to: a, fromTag: p.b, toTag: p.a, pair, dir: "downgrade" as const, series: b, patch: false }];
   });
+  // patch maps only go up: they take an older patch release to the series' representative
+  const patch = (m.patch_pairs ?? []).map((p) => ({ id: `${p.a}-${p.b}`, from: p.a, to: p.b, fromTag: p.a, toTag: p.b,
+    pair: `${p.a}_to_${p.b}`, dir: "upgrade" as const, series: tag[p.b] ?? p.b, patch: true }));
+  return [...patch, ...series];
 }
 
 function entries(doc: PairDoc, dir: Hop["dir"]): Entry[] {
@@ -81,7 +85,7 @@ export function Explorer({ manifest, mode, onMode, route, onRoute, onBack }: {
     if (!manifest) return;
     const base = `${import.meta.env.BASE_URL}engine/`;
     // by content hash, as the worker loads them: never a cached file of an older bundle
-    Promise.all(manifest.pairs.map(async (p) =>
+    Promise.all([...manifest.pairs, ...(manifest.patch_pairs ?? [])].map(async (p) =>
       [`${p.a}_to_${p.b}`, await (await fetch(`${base}${p.file}?v=${p.sha256}`)).json()] as const))
       .then((xs) => setDocs(Object.fromEntries(xs)), (e) => setError(String(e?.message ?? e)));
   }, [manifest]);
@@ -106,7 +110,9 @@ export function Explorer({ manifest, mode, onMode, route, onRoute, onBack }: {
         <button className="btn" onClick={onBack}><ArrowLeft size={14} /> Converter</button>
         <label htmlFor="hop">Version step</label>
         <select id="hop" value={hop?.id ?? ""} onChange={(e) => pick(e.target.value)} disabled={!all.length}>
-          {all.length ? [...all].sort((x, y) => order.indexOf(x.from) - order.indexOf(y.from) || (x.dir === "upgrade" ? -1 : 1))
+          {all.length ? [...all].sort((x, y) => order.indexOf(x.series) - order.indexOf(y.series) ||
+                                     Number(y.patch) - Number(x.patch) || x.from.localeCompare(y.from, undefined, { numeric: true }) ||
+                                     (x.dir === "upgrade" ? -1 : 1))
             .map((h) => <option key={h.id} value={h.id}>{h.from} → {h.to}{h.dir === "downgrade" ? " (downgrade)" : ""}</option>)
             : <option value="">loading…</option>}
         </select>
@@ -223,13 +229,17 @@ function Converted({ text, hop, mode }: { text: string; hop: Hop; mode: OutputMo
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    convert({ text, src_series: hop.from, dst_series: hop.to, mode }).then((r) => {
+    // a patch step names its map; a series step is routed by series, as a paste is
+    const req = hop.patch ? { src_series: hop.series, dst_series: hop.series,
+                              pair: { a: hop.fromTag, b: hop.toTag, direction: hop.dir } }
+                          : { src_series: hop.from, dst_series: hop.to };
+    convert({ text, mode, ...req }).then((r) => {
       if (!live) return;
       if (r.status === "converted") { setRows((r.rows ?? []).filter((x) => x.kind !== "header")); setErr(null); }
       else { setRows(null); setErr(r.status === "not_cli" ? "Not a CLI line" : r.status); }
     }, (e: Error) => live && setErr(e.message));
     return () => { live = false; };
-  }, [text, hop.from, hop.to, mode]);
+  }, [text, hop.id, hop.from, hop.to, mode]);
   if (err) return <div className="muted">{err}</div>;
   if (!rows) return <div className="loading muted">Converting…</div>;
   return (
