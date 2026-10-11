@@ -36,6 +36,7 @@ src/
   engine/useEngine.ts       React hook: starts the worker on page load, converts (debounced 250 ms)
   engine/protocol.ts        types of the engine's response (rows, outcomes, detection)
   lib/display.ts            engine rows -> aligned side-by-side lines, folds, note rows, counts
+  lib/report.ts             "Report a problem": which rows can be picked, the pre-filled issue URL
   styling/                  text styling engine: rules -> roles per span (pure TS, no React/DOM)
     engine.ts                 line rules, token rules, trackers (state across lines), extend()
     rules/betaflight.ts       the Configurator CLI tab's colouring, as rules (the baseline)
@@ -45,11 +46,14 @@ src/
                             example lines converted live by the engine and shown as the converter shows them
   components/StyledText.tsx renders styled spans as role classes (?styles shows roles on hover)
   components/parts.tsx      helper (empty state), paste box, "How it works"
+  components/Report.tsx     "Report a problem": the pick banner and the dialog that opens GitHub
   App.tsx                   page state: versions, edge states, edit mode, copy/download, banner; #maps routing
   engine/client.ts          the page's one engine worker, shared by the converter and the explorer
   styles.css                design tokens (Nocturne + attention amber) and all styles
 scripts/browser-parity.mjs
 .github/workflows/pages.yml  build + deploy to GitHub Pages on push to main
+.github/ISSUE_TEMPLATE/map-feedback.yml  the issue form "Report a problem" fills in. Its labels are what
+                            the private pipeline (`bfmap feedback`) parses: change both together
 ```
 
 **Data flow.** The worker loads Pyodide, unpacks `bfmap-engine.zip` into `/engine`, parses the
@@ -78,7 +82,9 @@ manifest and every pair once, and exposes one call: `app_convert(request)`, JSON
 - **Nothing copied from Betaflight's source goes into this repository.** The bundle carries names,
   values, our own rules and explanations, and PR numbers/titles only.
 - The site stores nothing and sends the pasted text nowhere: keep it that way (no analytics, no
-  storage of configurations).
+  storage of configurations). The one exception is the pilot's own action: "Report a problem" (one button
+  in the output toolbar and in an explorer entry) lets them pick ONE output line, shows what will go into
+  the issue, and opens GitHub's form pre-filled in a new tab. Nothing is sent until they submit it there.
 - **All colouring of CLI text goes through `src/styling`.** Components never pick colours for text. A new
   category is a `Role` (styling/types.ts), a named rule in `rules/index.ts` and a theme entry
   (`.r-<role>` in styles.css). Rules may read the converter's row facts (`StyleLine.row`) but never

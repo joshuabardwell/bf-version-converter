@@ -29,6 +29,25 @@ export function tone(r: Row): Line["tone"] {
   return "plain";
 }
 
+/** The engine's rows plus a row for every pasted line no row claims (kind "input", writes nothing), in
+ *  its place by line number: the left column always shows the whole paste, whatever the engine returned. */
+export function withInput(rows: Row[], input: string): Row[] {
+  const src = input.replace(/\r\n/g, "\n").replace(/\n+$/, "").split("\n");
+  const claimed = new Set(rows.map((r) => r.src_line));
+  const missing = src.map((_, i) => i + 1).filter((n) => !claimed.has(n));
+  if (!missing.length) return rows;
+  const gap = (n: number): Row => ({ src_line: n, original: src[n - 1], kind: "input", entity: null, outcome: "unchanged",
+    attention: false, lines: [], group: null, suggest: [], notes: [], prs: [] });
+  const out: Row[] = [];
+  let m = 0;
+  for (const r of rows) {
+    if (r.src_line != null) while (m < missing.length && missing[m] < r.src_line) out.push(gap(missing[m++]));
+    out.push(r);
+  }
+  while (m < missing.length) out.push(gap(missing[m++]));
+  return out;
+}
+
 /** All display lines, in order, with both columns' line numbers. */
 export function lines(rows: Row[], input: string): Line[] {
   const src = input.replace(/\r\n/g, "\n").split("\n");

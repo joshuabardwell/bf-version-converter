@@ -64,7 +64,9 @@ export function HowItWorks({ onClose, mapsDate }: { onClose: () => void; mapsDat
           and tells you how to set it again.</p>
         <p>Paste the converted text into the CLI tab and press Enter. The final <code>save</code> reboots the
           board. Then work through the ATTENTION lines.</p>
-        <p className="muted">Everything runs in your browser: your configuration is never uploaded or stored.
+        <p className="muted">Everything runs in your browser: your configuration is never uploaded or stored. If a
+          line converts wrong, "Report a problem" lets you pick that one line and opens a GitHub issue with it
+          filled in, for you to review and submit.
           {mapsDate ? ` Version maps of ${mapsDate}.` : ""} Not affiliated with the Betaflight project.</p>
       </div>
     </div>

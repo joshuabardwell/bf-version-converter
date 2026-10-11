@@ -122,6 +122,28 @@ textarea.cli.drop { border-color: var(--accent); }
 .c-attention.right, .c-attention.rnum { background: var(--amber-13); }
 .c-muted.left, .c-muted.right { opacity: .5; }
 .c-header.right, .c-header.rnum { background: var(--accent-7); }
+/* "Report a problem" pick mode: the pasted side steps back, an output line lights up under the pointer */
+.grid.picking > .left, .grid.picking > .lnum { opacity: .35; }
+.grid > .pickable { cursor: pointer; }
+.grid > .pickable.hot { background: var(--a800); box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.pickbar { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; color: var(--a300); }
+.pickbar button.link, .ehead button.link { background: none; border: 0; color: var(--n500); font: inherit; cursor: pointer; padding: 0; }
+.pickbar button.link:hover, .ehead button.link:hover { color: var(--text); }
+.ehead .report-link { margin-left: auto; font-size: 12.5px; }
+.dialog .card.report { width: min(640px, 100%); display: grid; gap: var(--s3); }
+.report .bar { display: flex; align-items: center; }
+.report .bar h2 { margin: 0; font-size: 15px; }
+.report .bar .btn { margin-left: auto; }
+.report dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--s2) var(--s4); margin: 0; }
+.report dt { color: var(--n500); }
+.report dd { margin: 0; min-width: 0; }
+.report dd pre, .report dd code { font: 11.5px/1.6 var(--mono); background: var(--cli-bg); color: var(--cli-text);
+  padding: 2px var(--s2); border-radius: var(--r1); margin: 0 0 var(--s1); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report dd code { display: inline-block; }
+.report textarea { background: var(--cli-bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r2);
+  padding: var(--s2) var(--s3); font: inherit; resize: vertical; }
+.report p { margin: 0; font-size: 12.5px; }
+.report .actions { display: flex; gap: var(--s3); justify-content: flex-end; flex-wrap: wrap; }
 
 /* syntax (src/styling roles): the only place role colours live. Later rules win, so the innermost
    role shows: a number in a comment is a number. */

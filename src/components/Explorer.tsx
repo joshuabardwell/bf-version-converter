@@ -2,9 +2,12 @@
 // writes for it. Nothing here is the map's own wording: each example line (from the bundle, see
 // bfmap/examples.py) is converted live by the same engine as a paste, and shown the same way.
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, MagnifyingGlass } from "@phosphor-icons/react";
+import { ArrowLeft, Flag, MagnifyingGlass } from "@phosphor-icons/react";
 import { convert } from "../engine/client";
+import { reportable, sourceLines, type Report } from "../lib/report";
+import { PickBanner, ReportDialog } from "./Report";
 import type { Example, Manifest, Outcome, OutputMode, PairDoc, Row } from "../engine/protocol";
+import { withInput } from "../lib/display";
 import { DiffView, label } from "./DiffView";
 
 export interface Route { hop: string | null; entity: string | null }
@@ -172,12 +175,31 @@ function Detail({ e, hop, doc, mode }: { e: Entry; hop: Hop; doc: PairDoc; mode:
   useEffect(() => { const t = setTimeout(() => setTried(own), 300); return () => clearTimeout(t); }, [own]);
   const added = doc.pilot_text[`${e.k}|${hop.dir}|*`];
   const prs = doc.entities[e.k]?.prs ?? [];
+  // "Report a problem": one example goes straight to the dialog; with more, the pilot picks a line
+  const [picking, setPicking] = useState(false);
+  const [report, setReport] = useState<Report | null>(null);
+  const texts = [...e.ex.map((x) => x.text), ...(e.ex.some((x) => x.text === tried) ? [] : [tried])].filter((t) => t.trim());
+  const reportOn = (picked: Picked) => {
+    setPicking(false);
+    setReport({ from: hop.fromTag, to: hop.toTag, line: picked.line, output: picked.output,
+                link: `${location.origin}${location.pathname}${routeHash({ hop: hop.id, entity: e.k })}` });
+  };
+  const start = async () => {
+    if (texts.length !== 1) { setPicking(true); return; }
+    const rows = await minimalRows(texts[0], hop);
+    const k = rows.findIndex(reportable);
+    if (k < 0) { setPicking(true); return; }
+    reportOn({ line: sourceLines(rows, k).join("\n"), output: rows[k].lines.filter((x) => x.trim()) });
+  };
   return (
     <div className="card edetail-card">
       <div className="ehead">
         <h2 className="mono">{e.name}</h2>
         <span className="muted">{KIND[e.type as Kind]?.replace(/s$/, "").toLowerCase()} · {hop.from} → {hop.to}</span>
         <span className={`badge ${tone(e)}`}>{badge(e)}</span>
+        {!e.added && (picking ? <PickBanner onCancel={() => setPicking(false)} />
+          : <button className="link report-link" onClick={start}
+                    title="Pick a line, then open a pre-filled GitHub issue"><Flag size={12} /> Report a problem</button>)}
       </div>
       {e.added ? (
         <p>New in {hop.to}. {hop.from} has no <code>{e.name}</code>, so there's no line to convert: after converting,
@@ -187,12 +209,14 @@ function Detail({ e, hop, doc, mode }: { e: Entry; hop: Hop; doc: PairDoc; mode:
           {e.ex.map((x) => (
             <div key={x.text} className="example">
               {x.via && <div className="muted via">Written from <code>{x.via.split(":").slice(1).join(":")}</code>:</div>}
-              <Converted text={x.text} hop={hop} mode={mode} />
+              <Converted text={x.text} hop={hop} mode={mode} picking={picking} onReport={reportOn}
+                         onCancel={() => setPicking(false)} />
             </div>))}
           <div className="example">
             <label className="muted" htmlFor="own">Try your own line</label>
             <input id="own" className="cli-input" value={own} onChange={(ev) => setOwn(ev.target.value)} spellCheck={false} />
-            {tried.trim() && <Converted text={tried} hop={hop} mode={mode} />}
+            {tried.trim() && <Converted text={tried} hop={hop} mode={mode} picking={picking} onReport={reportOn}
+                                        onCancel={() => setPicking(false)} />}
           </div>
         </>)}
       {prs.length > 0 && (
@@ -200,8 +224,24 @@ function Detail({ e, hop, doc, mode }: { e: Entry; hop: Hop; doc: PairDoc; mode:
           {prs.map((p) => <a key={p.n} className="pr" href={`https://github.com/betaflight/betaflight/pull/${p.n}`}
                              target="_blank" rel="noreferrer" title={p.title}>#{p.n}</a>)}
         </div>)}
+      {report && <ReportDialog report={report}
+                               onBack={texts.length > 1 ? () => { setReport(null); setPicking(true); } : undefined}
+                               onClose={() => setReport(null)} />}
     </div>
   );
+}
+
+interface Picked { line: string; output: string[] }
+
+/** A step's conversion request: a patch step names its map; a series step is routed by series, as a paste is. */
+const request = (hop: Hop) => hop.patch
+  ? { src_series: hop.series, dst_series: hop.series, pair: { a: hop.fromTag, b: hop.toTag, direction: hop.dir } }
+  : { src_series: hop.from, dst_series: hop.to };
+
+/** The rows as minimal mode writes them (what an issue gets), without the banner. */
+async function minimalRows(text: string, hop: Hop): Promise<Row[]> {
+  const r = await convert({ text, mode: "minimal", ...request(hop) });
+  return r.status === "converted" ? withInput((r.rows ?? []).filter((x) => x.kind !== "header"), text) : [];
 }
 
 /** A crash in the explorer shows its message and the way back, never a blank page. */
@@ -224,18 +264,21 @@ export class ExplorerBoundary extends Component<{ children: ReactNode; onBack: (
 }
 
 /** One input, converted live by the engine, shown as the converter shows it. */
-function Converted({ text, hop, mode }: { text: string; hop: Hop; mode: OutputMode }) {
+function Converted({ text, hop, mode, picking, onReport, onCancel }: {
+  text: string; hop: Hop; mode: OutputMode; picking?: boolean; onReport?: (p: Picked) => void; onCancel?: () => void;
+}) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const pick = async (k: number) => {
+    const rs = mode === "minimal" ? rows! : await minimalRows(text, hop);
+    const r = rs[k] ?? rows![k];
+    onReport?.({ line: sourceLines(rs, k).join("\n"), output: r.lines.filter((x) => x.trim()) });
+  };
   useEffect(() => {
     let live = true;
-    // a patch step names its map; a series step is routed by series, as a paste is
-    const req = hop.patch ? { src_series: hop.series, dst_series: hop.series,
-                              pair: { a: hop.fromTag, b: hop.toTag, direction: hop.dir } }
-                          : { src_series: hop.from, dst_series: hop.to };
-    convert({ text, mode, ...req }).then((r) => {
+    convert({ text, mode, ...request(hop) }).then((r) => {
       if (!live) return;
-      if (r.status === "converted") { setRows((r.rows ?? []).filter((x) => x.kind !== "header")); setErr(null); }
+      if (r.status === "converted") { setRows(withInput((r.rows ?? []).filter((x) => x.kind !== "header"), text)); setErr(null); }
       else { setRows(null); setErr(r.status === "not_cli" ? "Not a CLI line" : r.status); }
     }, (e: Error) => live && setErr(e.message));
     return () => { live = false; };
@@ -243,7 +286,7 @@ function Converted({ text, hop, mode }: { text: string; hop: Hop; mode: OutputMo
   if (err) return <div className="muted">{err}</div>;
   if (!rows) return <div className="loading muted">Converting…</div>;
   return (
-    <DiffView compact rows={rows} input={text} notes="all" showUnchanged
+    <DiffView compact rows={rows} input={text} notes="all" showUnchanged picking={picking} onPick={pick} onPickCancel={onCancel}
               header={<div className="heads"><div><span className="muted">Pasted · {hop.from}</span></div>
                 <div><span className="muted">Converted · {hop.to}</span></div></div>} />
   );

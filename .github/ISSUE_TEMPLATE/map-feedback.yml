@@ -1,0 +1,61 @@
+name: Map feedback
+description: One line the converter got wrong, or explained badly
+title: "Map feedback: "
+labels: ["map-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One report is about **one line** of your config. The converter's **Report a problem** button fills
+        this in for you: click it, then click the line. Please don't paste your whole config here.
+  - type: input
+    id: from_version
+    attributes:
+      label: From version
+      description: The Betaflight version the line came from (the first line of `diff all` says it), e.g. 4.4.1
+    validations:
+      required: true
+  - type: input
+    id: to_version
+    attributes:
+      label: To version
+      description: The version you converted to, e.g. 2025.12.5
+    validations:
+      required: true
+  - type: textarea
+    id: line
+    attributes:
+      label: The line
+      description: The one CLI line from your config, as you pasted it
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What the converter wrote
+      description: What the converter wrote for that line
+      render: shell
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What's wrong
+      description: In your own words. Wrong value, wrong name, a confusing or missing explanation, ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Tested on a flight controller?
+      options:
+        - "No"
+        - "Yes"
+  - type: input
+    id: link
+    attributes:
+      label: Map explorer link
+      description: Filled in by the Report a problem button

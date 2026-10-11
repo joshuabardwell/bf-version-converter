@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, Check, Copy, DownloadSimple, SpinnerGap, Warning } from "@phosphor-icons/react";
+import { ArrowDown, Check, Copy, DownloadSimple, Flag, SpinnerGap, Warning } from "@phosphor-icons/react";
+import { convert } from "./engine/client";
 import { useEngine } from "./engine/useEngine";
 import type { OutputMode, Response, Row } from "./engine/protocol";
 import { DiffView, rich, type DiffHandle } from "./components/DiffView";
 import { Helper, HowItWorks, Paste } from "./components/parts";
 import { Explorer, ExplorerBoundary, parseRoute, routeHash, type Route } from "./components/Explorer";
-import { counts, type NotesMode } from "./lib/display";
+import { PickBanner, ReportDialog } from "./components/Report";
+import { counts, withInput, type NotesMode } from "./lib/display";
+import { firstHopId, sourceLines, type Report } from "./lib/report";
 
 export default function App() {
   const [text, setText] = useState("");
@@ -17,6 +20,9 @@ export default function App() {
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [copied, setCopied] = useState(false);
   const [about, setAbout] = useState(false);
+  // "Report a problem": pick one output line, then the dialog (Report.tsx)
+  const [picking, setPicking] = useState(false);
+  const [report, setReport] = useState<(Report & { explorer: string | null }) | null>(null);
   const diff = useRef<DiffHandle>(null);
   // the map explorer lives at #maps…; the converter keeps its state (and pasted text) underneath
   const [route, setRoute] = useState<Route | null>(() => parseRoute(location.hash));
@@ -31,7 +37,8 @@ export default function App() {
   const series = engine.manifest?.series ?? [];
   const target = engine.target;
   const res = engine.response;
-  const rows = res?.status === "converted" ? res.rows ?? [] : [];
+  // every pasted line shows on the left, whatever rows the engine returned
+  const rows = useMemo(() => res?.status === "converted" ? withInput(res.rows ?? [], text) : [], [res, text]);
   const c = useMemo(() => counts(rows, res?.attention_lines ?? 0), [rows, res?.attention_lines]);
 
   const det = res?.detect;
@@ -70,6 +77,21 @@ export default function App() {
     return w.join(" ");
   });
 
+  const pickRow = async (k: number) => {
+    const r = rows[k];
+    let out = r.lines;
+    if (mode !== "minimal") {  // the issue gets the short form: labels, not the explanation blocks
+      const m = await convert({ text, src_series: src === "auto" ? null : src, dst_series: target, mode: "minimal" });
+      out = withInput(m.rows ?? [], text)[k]?.lines ?? out;
+    }
+    const hop = firstHopId(res?.hops, engine.manifest);
+    const hash = hop && r.entity ? routeHash({ hop, entity: r.entity }) : null;
+    setReport({ from: det?.version ?? from ?? "", to: series.find((s) => s.series === target)?.tag ?? target,
+                line: sourceLines(rows, k).join("\n"), output: out.filter((x) => x.trim()),
+                link: hash && `${location.origin}${location.pathname}${hash}`, explorer: hash });
+    setPicking(false);
+  };
+
   const empty = !text.trim();
   const converted = res?.status === "converted" && !!res.text;
   const lines = res?.text ? res.text.replace(/\n$/, "").split("\n").length : 0;
@@ -85,6 +107,8 @@ export default function App() {
         </div>)}
       <div>
         <span>Converted · {target}</span>
+        {picking ? <PickBanner onCancel={() => setPicking(false)}
+                               onShowUnchanged={showUnchanged ? undefined : () => setShowUnchanged(true)} /> :
         <span className="grow">
           {c.attention > 0 && <button className="link" onClick={() => diff.current?.nextAttention()}>
             <ArrowDown size={12} /> next attention</button>}
@@ -99,7 +123,10 @@ export default function App() {
             <DownloadSimple size={14} /> .txt</button>
           <button className="btn primary" onClick={() => copy(res.text!)}>
             {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy {lines} lines</>}</button>
-        </span>
+          <button className="link" onClick={() => setPicking(true)}
+                  title="Pick a line of the converted output, then open a pre-filled GitHub issue">
+            <Flag size={12} /> Report a problem</button>
+        </span>}
       </div>
     </div>) : null;
 
@@ -171,14 +198,16 @@ export default function App() {
           </div>
           <DiffView ref={diff} rows={rows} input={text} notes={notes} showUnchanged={showUnchanged}
                     onEditLeft={() => setEditing(true)} header={header}
-                    onApplySuggestion={applySuggestion} onKeepAsComment={(r) => editLine(r, (l) => `# ${l}`)} />
+                    onApplySuggestion={applySuggestion} onKeepAsComment={(r) => editLine(r, (l) => `# ${l}`)}
+                    picking={picking} onPick={pickRow} onPickCancel={() => setPicking(false)} />
         </>
       ) : (
         <div className="panes">
           <Paste text={text} onText={setText} autoFocus={editing}
                  onDone={converted ? () => setEditing(false) : undefined} />
           {converted ? (
-            <DiffView ref={diff} rows={rows} input={text} notes="off" showUnchanged={showUnchanged} rightOnly header={header} />
+            <DiffView ref={diff} rows={rows} input={text} notes="off" showUnchanged={showUnchanged} rightOnly header={header}
+                      picking={picking} onPick={pickRow} onPickCancel={() => setPicking(false)} />
           ) : (
             <RightPane res={res} empty={empty} stage={engine.stage} error={engine.error}
                        series={order} onSource={setSrc} onTarget={setDst} onCopyOriginal={() => copy(text)} />
@@ -193,9 +222,12 @@ export default function App() {
           ? <span>Next: paste into the CLI tab · press Enter · the final <code className="accent">save</code> reboots the board
             {c.attention ? ` · then work through the ${c.attention} ATTENTION ${c.attention === 1 ? "line" : "lines"}` : ""}</span>
           : <span />}
-        <span className="privacy">Your config never leaves your browser and isn't saved. Not affiliated with the Betaflight project.</span>
+        <span className="privacy">Your config never leaves your browser and isn't saved: "Report a problem" opens a
+          GitHub issue with just the line you pick, for you to review. Not affiliated with the Betaflight project.</span>
       </footer>
       {about && <HowItWorks onClose={() => setAbout(false)} mapsDate={engine.manifest?.maps_date} />}
+      {report && <ReportDialog report={report} explorer={report.explorer}
+                               onBack={() => { setReport(null); setPicking(true); }} onClose={() => setReport(null)} />}
     </div>
   );
 }

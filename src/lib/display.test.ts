@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fitSplit, hasNote, items, lines } from "./display.ts";
+import { fitSplit, hasNote, items, lines, withInput } from "./display.ts";
 import type { Row } from "../engine/protocol.ts";
 
 test("both fit: spare space split evenly", () => {
@@ -26,6 +26,17 @@ const folds = (rows: Row[]) => {
     .filter((it) => it.type === "fold").length;
 };
 const plain = (from: number) => Array.from({ length: 8 }, (_, i) => row("set", "unchanged", `set a${i} = 1`, from + i));
+
+test("every pasted line shows on the left, even one no row claims", () => {
+  const input = "set a = 1\nset gone = 2\nset c = 3\n";
+  const merged = { ...row("successor", "merged", "set b = 2", 0), src_line: null, original: null };
+  const rows = withInput([row("set", "unchanged", "set a = 1", 1), merged, row("set", "unchanged", "set c = 3", 3)], input);
+  assert.deepEqual(rows.map((r) => [r.kind, r.src_line]), [["set", 1], ["successor", null], ["input", 2], ["set", 3]]);
+  assert.deepEqual(lines(rows, input).filter((l) => l.left).map((l) => l.left!.n), [1, 2, 3]);
+  const all = [row("set", "unchanged", "set a = 1", 1)];
+  assert.equal(withInput(all, "set a = 1\n"), all);  // nothing missing: the same rows
+  assert.deepEqual(withInput([], "x\ny").map((r) => r.src_line), [1, 2]);
+});
 
 test("only headers and unchanged lines: nothing folds", () => {
   assert.equal(folds([row("header", "unchanged", "# version", 1), ...plain(2)]), 0);

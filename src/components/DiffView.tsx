@@ -1,9 +1,10 @@
 // The side-by-side diff (design 2a) with folded unchanged runs, note rows (2c) and the attention
 // minimap (2b). One scroll container, so both columns scroll together.
-import { Fragment, forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CaretDown, CaretRight } from "@phosphor-icons/react";
 import type { Row } from "../engine/protocol";
 import { type Item, type Line, type NotesMode, clampSplit, fitSplit, items as buildItems, lines as buildLines } from "../lib/display";
+import { reportable } from "../lib/report";
 import { appRules, styleDocument, type Span, type StyleLine } from "../styling";
 import { StyledText } from "./StyledText";
 
@@ -20,6 +21,9 @@ interface Props {
   onKeepAsComment?: (row: Row) => void;
   header: React.ReactNode;
   compact?: boolean;           // a few lines (the map explorer): no minimap, no fixed height
+  picking?: boolean;           // "Report a problem": a click on an output line picks its row
+  onPick?: (row: number) => void;
+  onPickCancel?: () => void;
 }
 
 export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) {
@@ -96,6 +100,29 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
     window.addEventListener("pointerup", up);
   };
   const refit = () => { manual.current = false; fit(); };
+  // pick mode: the rows a pilot can report, in display order; ↑/↓ move, Enter picks, Esc cancels
+  const [hot, setHot] = useState<number | null>(null);
+  const pickRows = useMemo(() => p.picking ? [...new Set(shown.flatMap((it) =>
+    it.type === "line" && it.line.right && reportable(p.rows[it.line.row]) ? [it.line.row] : []))] : [],
+    [p.picking, shown, p.rows]);
+  useEffect(() => {
+    if (!p.picking) { setHot(null); return; }
+    const f = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { p.onPickCancel?.(); return; }
+      if (p.compact) return;  // the explorer shows several small diffs at once: pointer only
+      if (e.key === "Enter" && hot != null) { e.preventDefault(); p.onPick?.(hot); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      const i = hot == null ? -1 : pickRows.indexOf(hot);
+      const next = pickRows[Math.max(0, Math.min(pickRows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
+      if (next == null) return;
+      setHot(next);
+      scroller.current?.querySelector(`.rnum[data-row="${next}"]`)?.scrollIntoView({ block: "nearest" });
+    };
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, [p.picking, p.onPick, p.onPickCancel, hot, pickRows]);
+
   const attentionRows = useMemo(() => [...new Set(all.filter((l) => l.attention).map((l) => l.row))], [all]);
 
   const goTo = (row: number) => {
@@ -124,12 +151,17 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
     const left = !p.rightOnly && [
       <div key="ln" className={`n lnum ${c}`} data-row={l.row}>{l.left?.n ?? ""}</div>,
       <div key="lt" className={`t left ${c}${l.outcome === "unrecognized" && l.left ? " underline" : ""}`}
-           onClick={p.onEditLeft}>{l.left && <StyledText spans={styled.left.get(l)!} />}</div>,
+           onClick={p.picking ? undefined : p.onEditLeft}>{l.left && <StyledText spans={styled.left.get(l)!} />}</div>,
     ];
+    const pick = p.picking && l.right && reportable(p.rows[l.row]) ? {
+      className: ` pickable${hot === l.row ? " hot" : ""}`, onClick: () => p.onPick?.(l.row),
+      onMouseEnter: () => setHot(l.row) } : null;
     return [
       ...(left || []),
-      <div key="rn" className={`n r rnum ${c}`} data-row={l.row}>{l.right?.n ?? ""}</div>,
-      <div key="rt" className={`t right ${c}`}>{l.right && <StyledText spans={styled.right.get(l)!} />}</div>,
+      <div key="rn" className={`n r rnum ${c}${pick?.className ?? ""}`} data-row={l.row}
+           onClick={pick?.onClick} onMouseEnter={pick?.onMouseEnter}>{l.right?.n ?? ""}</div>,
+      <div key="rt" className={`t right ${c}${pick?.className ?? ""}`} onClick={pick?.onClick}
+           onMouseEnter={pick?.onMouseEnter}>{l.right && <StyledText spans={styled.right.get(l)!} />}</div>,
     ];
   };
 
@@ -195,7 +227,7 @@ export const DiffView = forwardRef<DiffHandle, Props>(function DiffView(p, ref) 
                onDoubleClick={refit} role="separator" aria-orientation="vertical"
                aria-valuenow={Math.round(split * 100)} title="Drag to resize · double-click to fit the lines" />)}
         <div className="scroll" ref={scroller}>
-          <div className={`grid${p.rightOnly ? " right-only" : ""}`}>
+          <div className={`grid${p.rightOnly ? " right-only" : ""}${p.picking ? " picking" : ""}`}>
             <span ref={probe} className="probe" aria-hidden>{PROBE}</span>
             {shown.map((it: Item, i) => {
               if (it.type === "line") return cells(it.line);
