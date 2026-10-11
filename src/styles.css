@@ -112,8 +112,7 @@ textarea.cli.drop { border-color: var(--accent); }
 .grid { display: grid; grid-template-columns: var(--cols); font: 11.5px/1.7 var(--mono); }
 .grid > .probe { position: absolute; top: 0; left: 0; visibility: hidden; white-space: pre; pointer-events: none; }
 .grid > .n { color: var(--n700); text-align: right; padding-right: 8px; user-select: none; }
-.grid > .t { color: var(--cli-text); white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
-.grid > .t:hover { overflow: visible; white-space: pre-wrap; word-break: break-all; }
+.grid > .t { color: var(--cli-text); white-space: pre; overflow: hidden; padding-right: 10px; }
 .grid > .n.r { border-left: 1px solid var(--rule); }
 .grid > .t.left { cursor: text; }
 /* outcome (src/lib/display.ts tone): row background only; muted rows dim their text */
