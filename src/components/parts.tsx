@@ -61,9 +61,9 @@ export function HowItWorks({ onClose, mapsDate }: { onClose: () => void; mapsDat
         <p>The maps are built by comparing the Betaflight source of each release, setting by setting, and every
           conversion is tested by pasting converted configurations into Betaflight's simulator and reading them
           back. Where a value can't carry over, the converter says so with an <span className="amber">ATTENTION</span> line
-          and tells you how to set it again.</p>
+          and tells you whether you need to do anything.</p>
         <p>Paste the converted text into the CLI tab and press Enter. The final <code>save</code> reboots the
-          board. Then work through the ATTENTION lines.</p>
+          board. Then read through the ATTENTION lines.</p>
         <p className="muted">Everything runs in your browser: your configuration is never uploaded or stored. If a
           line converts wrong, "Report a problem" lets you pick that one line and opens a GitHub issue with it
           filled in, for you to review and submit.

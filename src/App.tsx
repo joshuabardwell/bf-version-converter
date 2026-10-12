@@ -40,6 +40,9 @@ export default function App() {
   // every pasted line shows on the left, whatever rows the engine returned
   const rows = useMemo(() => res?.status === "converted" ? withInput(res.rows ?? [], text) : [], [res, text]);
   const c = useMemo(() => counts(rows, res?.attention_lines ?? 0), [rows, res?.attention_lines]);
+  // the banner's button jumps to the first ATTENTION line, then on through the rest (feedback from Delay)
+  const [jumped, setJumped] = useState(false);
+  useEffect(() => setJumped(false), [rows]);
 
   const det = res?.detect;
   const order = series.map((s) => s.series);
@@ -183,7 +186,8 @@ export default function App() {
           <Warning size={16} className="amber" />
           <span><span className="amber">{c.attention} {c.attention === 1 ? "line needs" : "lines need"} your attention before you fly.</span>
             <span className="muted"> The rest converted automatically.</span></span>
-          <button onClick={() => diff.current?.first()}>Jump to first ↓</button>
+          <button onClick={() => { if (jumped) diff.current?.nextAttention(); else diff.current?.first(); setJumped(true); }}>
+            {jumped && c.attention > 1 ? "Jump to next ↓" : "Jump to first ↓"}</button>
         </div>)}
 
       {converted && !editing ? (
@@ -220,7 +224,7 @@ export default function App() {
       <footer className="foot">
         {converted && !route
           ? <span>Next: paste into the CLI tab · press Enter · the final <code className="accent">save</code> reboots the board
-            {c.attention ? ` · then work through the ${c.attention} ATTENTION ${c.attention === 1 ? "line" : "lines"}` : ""}</span>
+            {c.attention ? ` · then read through the ${c.attention} ATTENTION ${c.attention === 1 ? "line" : "lines"}` : ""}</span>
           : <span />}
         <span className="privacy">Your config never leaves your browser and isn't saved: "Report a problem" opens a
           GitHub issue with just the line you pick, for you to review. Not affiliated with the Betaflight project.</span>

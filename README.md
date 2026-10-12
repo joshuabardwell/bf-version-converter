@@ -7,7 +7,7 @@ another, upgrade or downgrade, and see exactly what changed and why.
 
 - Paste your CLI text; the converted text appears side by side with the original.
 - Every line that needs your attention is marked `ATTENTION` inside the converted text, with the reason and
-  how to set it again in the CLI. Everything else converts automatically.
+  whether you need to do anything in the CLI. Everything else converts automatically.
 - Supported: Betaflight 4.5, 2025.12 and 2026.6 (each patch release of those series).
 - Your configuration never leaves your browser and isn't saved.
 
