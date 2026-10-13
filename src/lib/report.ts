@@ -18,19 +18,29 @@ export interface Report {
   link?: string | null;  // the entry in the map explorer
 }
 
-/** Can a pilot report this row? A line of their text, or a line merged from theirs: not the banner, a
- *  blank or a comment. */
+/** Can a pilot report this row? A line of their text, a line merged from theirs, or the block their
+ *  moved lines went to (feedback #14): not the banner, a blank or a comment. */
 export function reportable(r: Row): boolean {
   const o = (r.original ?? "").trim();
   if (["header", "new", "blank", "comment"].includes(r.kind) || o.startsWith("#")) return false;
-  return (r.src_line != null && !!o) || (r.kind === "successor" && r.lines.length > 0);
+  return (r.src_line != null && !!o) || (["successor", "relocated"].includes(r.kind) && r.lines.length > 0);
 }
 
-/** The pasted line(s) a row came from: its own, or for a merged line the inputs of its merge (none
- *  when an earlier step of a chain dropped them: the rows don't carry them then). */
+const MOVED = "# MOVED: ";
+const setName = (s: string) => /^set\s+(\S+)/.exec(s.trim())?.[1];
+
+/** The pasted line(s) a row came from: its own; for a merged line the inputs of its merge (none when an
+ *  earlier step of a chain dropped them: the rows don't carry them then); for a block of moved lines,
+ *  the pilot's lines that moved into it (by setting name, else every moved line). */
 export function sourceLines(rows: Row[], k: number): string[] {
   const r = rows[k];
   if (r.original?.trim()) return [r.original.trim()];
+  if (r.kind === "relocated") {
+    const moved = rows.filter((x) => x.original?.trim() && x.lines.some((l) => l.startsWith(MOVED)));
+    const names = new Set(r.lines.map(setName).filter(Boolean));
+    const mine = moved.filter((x) => names.has(setName(x.original!)));
+    return (mine.length ? mine : moved).map((x) => x.original!.trim());
+  }
   return r.group ? rows.filter((x) => x.group === r.group && x.original?.trim()).map((x) => x.original!.trim()) : [];
 }
 

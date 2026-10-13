@@ -28,6 +28,19 @@ test("a merged line reports the lines it was merged from", () => {
   assert.deepEqual(sourceLines([input], 0), ["set gps_rescue_pitch_angle_max = 40"]);
 });
 
+test("a block of moved lines is reportable and reports the lines that moved into it", () => {  // feedback #14
+  const block = { ...row("relocated", null, null), lines: [
+    "# battery_profile settings that were master in 2025.12.5, set in battery_profile 0 only", "battery_profile 0",
+    "set vbat_max_cell_voltage = 440", "set force_battery_cell_count = 1"] };
+  const a = { ...row("set", "set vbat_max_cell_voltage = 440"), lines: ["# MOVED: set vbat_max_cell_voltage = 440"] };
+  const b = { ...row("set", "set force_battery_cell_count = 1"), lines: ["# MOVED: set force_battery_cell_count = 1"] };
+  const other = { ...row("set", "set p_roll = 50"), lines: ["set p_roll = 50"] };
+  assert.equal(reportable(block), true);
+  assert.equal(reportable({ ...block, lines: [] }), false);
+  assert.deepEqual(sourceLines([a, other, b, block], 3),
+                   ["set vbat_max_cell_voltage = 440", "set force_battery_cell_count = 1"]);
+});
+
 test("the URL opens the map-feedback form with every field filled", () => {
   const u = new URL(reportUrl({ from: "4.4.1", to: "2025.12.5", line: "set gyro_lowpass_hz = 250",
                                 output: ["set gyro_lpf1_static_hz = 250"], what: "Wrong value", link: "https://x/#maps/a" }));
